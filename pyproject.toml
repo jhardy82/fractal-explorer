@@ -44,6 +44,9 @@ extend-exclude = ["tests/_baselines", "artifacts"]
 select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
 ignore = [
     "E501",   # line length handled by formatter
+    "E701",   # one-liner colon — deliberate compact style in math-heavy engine
+    "E702",   # one-liner semicolon — deliberate compact style in math-heavy engine
+    "N802",   # DE = Distance Estimator (math notation); F = fractal category — same reason as N806/N803
     "N806",   # allow Title-case locals (math symbols A, B, C in attractor formulas)
     "N803",   # allow Title-case args same reason
 ]

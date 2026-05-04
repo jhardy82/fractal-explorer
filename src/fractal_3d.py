@@ -304,8 +304,6 @@ class _MengerSpongeDE(Fractal3D):
     def DE(self, p):
         """DE for the iterated Menger sponge — fold + scale 3."""
         # initial bound: unit cube at origin
-        d = np.maximum.reduce([np.abs(p[:, 0]) - 1, np.abs(p[:, 1]) - 1, np.abs(p[:, 2]) - 1])
-
         scale = 1.0
         q = p.copy()
         for _ in range(self.iter_count):

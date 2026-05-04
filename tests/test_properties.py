@@ -18,9 +18,8 @@ import math
 import os
 import random
 
-import numpy as np
-import pytest
-from hypothesis import HealthCheck, Verbosity, given, settings, strategies as st
+from hypothesis import HealthCheck, Verbosity, given, settings
+from hypothesis import strategies as st
 
 # headless SDL must be set before pygame imports
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
@@ -153,7 +152,7 @@ class TestLSystemGrowthProperty:
         assert F_in_rule == 8, f"Rule F-count changed: {F_in_rule}"
 
         s = "F"
-        for k in range(3):
+        for _ in range(3):
             f_before = s.count("F")
             s = "".join(rules.get(ch, ch) for ch in s)
             assert s.count("F") == f_before * F_in_rule

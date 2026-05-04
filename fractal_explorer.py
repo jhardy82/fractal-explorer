@@ -31,8 +31,8 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-import fractal_explorer_v2 as engine          # noqa: E402  (path-setup-first)
-import fractal_3d                              # noqa: E402
+import fractal_3d  # noqa: E402
+import fractal_explorer_v2 as engine  # noqa: E402  (path-setup-first)
 
 
 def main():

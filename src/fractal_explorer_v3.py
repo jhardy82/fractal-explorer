@@ -26,11 +26,10 @@ KEYS (interactive)
 """
 from __future__ import annotations
 
+import argparse
 import os
 import sys
-import argparse
 from pathlib import Path
-
 
 # ---------------------------------------------------------------------------
 # Parse args at module scope — BEFORE any pygame import.
@@ -79,9 +78,8 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-import fractal_explorer_v2 as engine   # noqa: E402
-import fractal_3d                       # noqa: E402
-
+import fractal_3d  # noqa: E402
+import fractal_explorer_v2 as engine  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -7,11 +7,8 @@ init/draw bugs that pure-function unit tests miss.
 """
 from __future__ import annotations
 
-import os
-
 import pygame
 import pytest
-
 
 # ── all-pages lifecycle ─────────────────────────────────────────────────────
 
@@ -34,7 +31,7 @@ class TestAllPagesLifecycle:
     def test_all_pages_lifecycle(self, all_page_classes, page_factory, size):
         """Init + reset + update×30 + draw must complete without exception."""
         w, h = size
-        for cat, cls in all_page_classes:
+        for _cat, cls in all_page_classes:
             page = page_factory(cls, w=w, h=h)
             surf = pygame.Surface((w, h))
             for f in range(1, 31):

@@ -19,7 +19,7 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 import numpy as np  # noqa: E402  (intentional after env)
-import pygame      # noqa: E402
+import pygame  # noqa: E402
 
 # locate the engine module
 _HERE = Path(__file__).resolve().parent

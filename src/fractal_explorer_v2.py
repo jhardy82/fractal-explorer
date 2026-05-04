@@ -46,7 +46,6 @@ from __future__ import annotations
 import colorsys
 import math
 import random
-from dataclasses import dataclass
 
 import numpy as np
 import pygame
@@ -818,7 +817,7 @@ class PythagorasTree(FractalPage):
         th = self.theta
         # left child: rotate (c - d) by -th and scale by cos(th)
         rot_l = complex(math.cos(-th), math.sin(-th)) * math.cos(th)
-        rot_r = complex(math.cos(math.pi / 2 - th), math.sin(math.pi / 2 - th)) * math.sin(th)
+        # rot_r (right-child factor) not used — left-child geometry mirrors it
         apex = d + (c - d) * rot_l
         # left child square
         self._draw_square(d, apex, n - 1)
@@ -852,8 +851,8 @@ class ApollonianGasket(FractalPage):
         R = min(self.w, self.h) * 0.42
         # use Descartes-Soddy: 3 inner circles of equal radius r₀ touching each other and outer
         # r0 such that 3*r0 + 2*r0/sqrt(3) = R  (approximate canonical packing)
-        r0 = R * (2 * math.sqrt(3) - 3)
-        # actually use the canonical gasket: outer r=1, three inner r = 1/(2+2/sqrt(3))
+        # r0 = R * (2 * math.sqrt(3) - 3)  # approximate — superseded by canonical below
+        # canonical gasket: outer r=1, three inner r = 1/(2+2/sqrt(3))
         r1 = R / (2 + 2 / math.sqrt(3))
         # three positions around centre at 120°
         circles = [(cx, cy, -1 / R)]   # outer (negative curvature)
@@ -1444,7 +1443,7 @@ class TreeOfLife(SacredGeometryForm):
             pygame.draw.line(self.surface, (110, 130, 180),
                              (int(x1), int(y1)), (int(x2), int(y2)), 2)
         # spheres
-        for n, (x, y) in coords.items():
+        for _n, (x, y) in coords.items():
             pygame.draw.circle(self.surface, self.color, (int(x), int(y)), int(r), 0)
             pygame.draw.circle(self.surface, BG, (int(x), int(y)), int(r * 0.5), 0)
 

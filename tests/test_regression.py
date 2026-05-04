@@ -10,9 +10,7 @@ Baselines stored at: tests_fractal_engine/_baselines/<class_name>_<frame>.txt
 from __future__ import annotations
 
 import hashlib
-import os
 import random
-import sys
 from pathlib import Path
 
 import numpy as np

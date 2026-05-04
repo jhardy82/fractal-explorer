@@ -19,9 +19,8 @@ import math
 import os
 import random
 
-import numpy as np
-import pytest
-from hypothesis import HealthCheck, Verbosity, given, settings, strategies as st
+from hypothesis import HealthCheck, Verbosity, given, settings
+from hypothesis import strategies as st
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
@@ -222,4 +221,14 @@ class TestEscapeTimeProgressiveV2:
         assert page.row >= page.h
 
     @given(st.sampled_from(["Mandelbrot", "Julia1", "BurningShip", "Tricorn"]))
-    def test_escape_time_finishes(
+    def test_escape_time_finishes(self, engine, name):
+        """All escape-time forms complete rendering within a bounded frame count."""
+        cls = next(c for c in engine.PAGE_CLASSES["A"] if c.__name__ == name)
+        page = cls(160, 120)
+        page.reset()
+        max_frames = (page.h // max(page.rows_per_frame, 1)) + 10
+        for _ in range(max_frames):
+            page.update(1)
+            if page.row >= page.h:
+                break
+        assert page.row >= page.h, f"{name} did not finish in {max_frames} frames"
