@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# uv
+.uv-cache/
+uv.lock         # comment out if you want to commit lockfile
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test artefacts (intermediate; keep _baselines under VC)
+.pytest_cache/
+.mutmut-cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+*.junit.xml
+
+# mutmut state — regenerated each run
+mutants/
+mutmut-stats.json
+
+# Test results — generated, not committed
+artifacts/test-results/
+*.junit.xml
+
+# Pygame / SDL
+*.dll
+*.dylib
+
+# OS
+.DS_Store
+Thumbs.db
+
+# bindfs artifact — do not commit
+*.stale
+.git.*
