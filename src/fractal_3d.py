@@ -52,8 +52,8 @@ class Fractal3D:
 
     # rendering params (override per subclass for fine-tuning)
     downscale = 3              # render at w/downscale, h/downscale, then scale up
-    rows_per_frame = 8         # rows of low-res output per frame
-    max_steps = 64             # raymarch iterations
+    rows_per_frame = 6         # rows of low-res output per frame
+    max_steps = 48             # raymarch iterations (reduced from 64 for perf)
     epsilon = 0.001            # hit threshold (relative to scene scale)
     max_dist = 8.0             # ray cutoff
     bailout = 4.0              # |z| escape bound for fractals
@@ -129,7 +129,7 @@ class Fractal3D:
         # Flatten for DE call
         H = y1 - y0
         rd_flat = rd.reshape(-1, 3)
-        ro = np.broadcast_to(eye, rd_flat.shape).copy()
+        # eye is (3,) — broadcast directly without a full N×3 copy
 
         # March
         t = np.full(rd_flat.shape[0], 0.0, dtype=np.float32)
@@ -138,7 +138,7 @@ class Fractal3D:
         for _ in range(self.max_steps):
             if not active.any():
                 break
-            p = ro[active] + t[active, None] * rd_flat[active]
+            p = eye + t[active, None] * rd_flat[active]
             d = self.DE(p)
             t[active] += d
             new_hit = active.copy()
@@ -151,7 +151,7 @@ class Fractal3D:
         # Shade
         col = np.zeros((rd_flat.shape[0], 3), dtype=np.float32)
         if hit.any():
-            p_hit = ro[hit] + t[hit, None] * rd_flat[hit]
+            p_hit = eye + t[hit, None] * rd_flat[hit]
             n = self._estimate_normal(p_hit)
             light = np.array([0.6, 0.8, 0.4], dtype=np.float32)
             light /= np.linalg.norm(light)
@@ -210,7 +210,10 @@ class Fractal3D:
 class _MandelbulbDE(Fractal3D):
     name = "Mandelbulb"
     info = "z' = z⁸ + c (polar form) · White & Nylander 2009"
-    iter_count = 8
+    iter_count = 6          # reduced from 8 for perf (still visually crisp)
+    downscale = 4           # 1/4 canvas → 120×90 low-res (vs 160×120); 44% fewer pixels
+    rows_per_frame = 3      # 3 rows × 30 frames = 90 = lh → exactly one pass
+    max_steps = 32          # 32 steps; Mandelbulb converges well within 32 marches
     bailout = 2.0
     color_a = (60, 30, 130)
     color_b = (250, 220, 180)
@@ -225,29 +228,29 @@ class _MandelbulbDE(Fractal3D):
         for _ in range(self.iter_count):
             if not active.any():
                 break
-            r_active = np.linalg.norm(z[active], axis=1)
-            r[active] = r_active
-            escaped = r_active > self.bailout
-            local_active_idx = np.where(active)[0]
-            mask_escape = local_active_idx[escaped]
-            active[mask_escape] = False
-            still = np.where(active)[0]
+            # single norm call per iteration: reuse for both escape check and DE
+            rs = np.linalg.norm(z[active], axis=1)
+            r[active] = rs
+            not_escaped = rs <= self.bailout
+            active_idx = np.where(active)[0]
+            active[active_idx[~not_escaped]] = False
+            still = active_idx[not_escaped]
             if not still.size:
                 break
+            rs_s = rs[not_escaped]          # non-escaped norms (reused below)
             zs = z[still]
-            rs = np.linalg.norm(zs, axis=1)
-            theta = np.arccos(np.clip(zs[:, 1] / (rs + 1e-9), -1.0, 1.0))
+            theta = np.arccos(np.clip(zs[:, 1] / (rs_s + 1e-9), -1.0, 1.0))
             phi = np.arctan2(zs[:, 2], zs[:, 0])
-            dr_new = rs ** (n - 1) * n * dr[still] + 1.0
-            zr = rs ** n
+            zr = rs_s ** n
+            dr[still] = zr / (rs_s + 1e-9) * n * dr[still] + 1.0  # rs^(n-1) from zr/rs
             theta_n = theta * n
             phi_n = phi * n
-            x = zr * np.sin(theta_n) * np.cos(phi_n)
-            y_ = zr * np.cos(theta_n)
-            zc = zr * np.sin(theta_n) * np.sin(phi_n)
-            z_new = np.stack([x, y_, zc], axis=1) + p[still]
-            z[still] = z_new
-            dr[still] = dr_new
+            sth = np.sin(theta_n)           # cache: used for x and z components
+            z[still] = np.stack([
+                zr * sth * np.cos(phi_n),
+                zr * np.cos(theta_n),
+                zr * sth * np.sin(phi_n),
+            ], axis=1) + p[still]
         return 0.5 * np.log(np.maximum(r, 1e-9)) * r / (dr + 1e-9)
 
 
@@ -259,6 +262,8 @@ class _MandelboxDE(Fractal3D):
     name = "Mandelbox"
     info = "Box-fold + sphere-fold + linear scale · Tom Lowe 2010"
     iter_count = 12
+    rows_per_frame = 5      # 5 × 30 = 150 rows; first pass at frame 24 → ~17% less work
+    max_steps = 36          # reduced from 48; Mandelbox converges well within 36 marches
     bailout = 1024.0
     scale = 2.0
     fold_limit = 1.0

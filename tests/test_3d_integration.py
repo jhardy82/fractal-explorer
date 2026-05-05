@@ -18,18 +18,19 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 import numpy as np
 import pygame  # noqa: E402
 
-# add Forge Concepts/ to sys.path so fractal_3d imports work
+# add src/ to sys.path so fractal_3d + fractal_explorer_v2 imports work
 _HERE = Path(__file__).resolve().parent
 _REPO = _HERE.parent
-if str(_REPO) not in sys.path:
-    sys.path.insert(0, str(_REPO))
+_SRC = _REPO / "src"
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
 
 
 @pytest.fixture(scope="module")
 def engine_with_3d():
     """Engine module with category F registered."""
     import importlib.util
-    spec = importlib.util.spec_from_file_location("engine_3d", _REPO / "fractal_explorer_v2.py")
+    spec = importlib.util.spec_from_file_location("engine_3d", _SRC / "fractal_explorer_v2.py")
     eng = importlib.util.module_from_spec(spec)
     sys.modules["fractal_engine_v2"] = eng    # match conftest naming
     sys.modules["fractal_explorer_v2"] = eng
@@ -37,7 +38,7 @@ def engine_with_3d():
     pygame.display.set_mode((1, 1))
     spec.loader.exec_module(eng)
 
-    spec3 = importlib.util.spec_from_file_location("f3d", _REPO / "fractal_3d.py")
+    spec3 = importlib.util.spec_from_file_location("f3d", _SRC / "fractal_3d.py")
     f3d = importlib.util.module_from_spec(spec3)
     sys.modules["fractal_3d"] = f3d
     spec3.loader.exec_module(f3d)
@@ -166,3 +167,26 @@ class TestThreeDCameraAnimation:
         eye_b = page._camera()[0]
         # yaw should have rotated, eye position changed
         assert not np.allclose(eye_a, eye_b), "Camera should auto-rotate over frames"
+
+
+# ── performance: 30 frames at 480×360 ≤ 0.300s ────────────────────────────
+
+class TestThreeDPerformance:
+    """C.3 DoD: 30 frames at 480×360 must complete in ≤ 0.300s per form."""
+
+    @pytest.mark.parametrize("name", ["Mandelbulb", "Mandelbox", "MengerSponge"])
+    def test_30_frames_at_480x360_within_300ms(self, engine_with_3d, name):
+        import time
+        cls = next(c for c in engine_with_3d.PAGE_CLASSES["F"] if c.__name__ == name)
+        page = cls(480, 360)
+        page.reset()
+        surf = pygame.Surface((480, 360))
+        N = 30
+        t0 = time.perf_counter()
+        for f in range(1, N + 1):
+            page.update(f)
+            page.draw(surf)
+        elapsed = time.perf_counter() - t0
+        assert elapsed <= 0.300, (
+            f"{name}: {elapsed:.3f}s for {N} frames at 480×360 (limit 0.300s)"
+        )

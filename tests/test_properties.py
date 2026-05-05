@@ -66,6 +66,8 @@ class TestIFSBoundingBoxProperty:
     (with margin to account for sampling variance)."""
 
     def test_bbox_is_finite_and_non_degenerate(self, engine):
+        # CantorSetIFS is genuinely 1D — y-extent collapses to zero by construction
+        ONE_D_KNOWN = {"CantorSetIFS"}
         for cls in engine.PAGE_CLASSES["B"]:
             if not hasattr(cls, "transforms") or not cls.transforms:
                 continue
@@ -74,7 +76,8 @@ class TestIFSBoundingBoxProperty:
             assert math.isfinite(page.bx0) and math.isfinite(page.bx1)
             assert math.isfinite(page.by0) and math.isfinite(page.by1)
             assert page.bx1 > page.bx0, f"{cls.__name__}: bbox x degenerate"
-            assert page.by1 > page.by0, f"{cls.__name__}: bbox y degenerate"
+            if cls.__name__ not in ONE_D_KNOWN:
+                assert page.by1 > page.by0, f"{cls.__name__}: bbox y degenerate"
 
     @given(seed_st)
     def test_sierpinski_long_run_mostly_inside_bbox_with_margin(self, engine, seed):
@@ -284,3 +287,20 @@ class TestSacredGeometryProperty:
 
 
 # ── escape-time progressive-render invariant ───────────────────────────────
+#
+# Every escape-time page must finish rendering one full pass within a bounded
+# number of update() calls proportional to h // rows_per_frame.
+
+class TestEscapeTimeProgressive:
+    @given(st.sampled_from(["Mandelbrot", "Julia1", "BurningShip", "Tricorn"]))
+    def test_escape_time_finishes(self, engine, name):
+        """All escape-time forms complete rendering within a bounded frame count."""
+        cls = next(c for c in engine.PAGE_CLASSES["A"] if c.__name__ == name)
+        page = cls(160, 120)
+        page.reset()
+        max_frames = (page.h // max(page.rows_per_frame, 1)) + 10
+        for _ in range(max_frames):
+            page.update(1)
+            if page.row >= page.h:
+                break
+        assert page.row >= page.h, f"{name} did not finish in {max_frames} frames"

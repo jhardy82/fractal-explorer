@@ -21,15 +21,20 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 import numpy as np  # noqa: E402  (intentional after env)
 import pygame  # noqa: E402
 
-# locate the engine module
+# locate the engine module (src/ layout)
 _HERE = Path(__file__).resolve().parent
-_ENGINE_PATH = _HERE.parent / "fractal_explorer_v2.py"
+_SRC = _HERE.parent / "src"
+_ENGINE_PATH = _SRC / "fractal_explorer_v2.py"
 
 if not _ENGINE_PATH.exists():
     raise FileNotFoundError(
         f"fractal_explorer_v2.py not found at expected location: {_ENGINE_PATH}\n"
-        "conftest expects the engine to live one directory above tests_fractal_engine/."
+        "conftest expects the engine at <project-root>/src/fractal_explorer_v2.py"
     )
+
+# put src/ on sys.path so intra-engine imports (e.g. fractal_3d → fractal_explorer_v2) resolve
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
 
 
 @pytest.fixture(scope="session")
