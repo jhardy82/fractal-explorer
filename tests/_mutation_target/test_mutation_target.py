@@ -137,6 +137,18 @@ class TestJuliaIter:
         # Kills: + → - mutation in the escape condition check.
         assert julia_iter(1.0, 2.0, 0.0, 0.0, 100) == 0
 
+    def test_nonzero_cy_parameter(self):
+        # All existing tests use cy=0, making +cy and -cy identical (negating zero).
+        # z=(0.5,0.5), c=(0,1): escapes at iter 2 (traced). With -cy (cy=-1): orbit
+        # escapes at iter 6 (different count), killing the +cy → -cy mutation.
+        assert julia_iter(0.5, 0.5, 0.0, 1.0, 100) == 2
+
+    def test_nonzero_cx_parameter(self):
+        # All existing tests use cx=0, making +cx and -cx identical.
+        # z=(0,0), c=(0.5,0.5) is identical to mandelbrot(0.5,0.5) → 5.
+        # With -cx mutation (cx=-0.5): orbit with c=(-0.5,0.5) is bounded → 100 ≠ 5.
+        assert julia_iter(0.0, 0.0, 0.5, 0.5, 100) == 5
+
 
 # ── smooth_colour ───────────────────────────────────────────────────────────
 
@@ -374,3 +386,11 @@ class TestToScreen:
         sx, sy = to_screen(2.0, 0.5, 0.0, 2.0, 0.0, 1.0, 100, 100)
         assert sx == 95
         assert sy == 50
+
+    def test_h_divided_not_multiplied_by_bh(self):
+        # All tests use bh=1.0, making h/bh == h*bh (100/1 == 100*1).
+        # With bh=2: h/bh=50 (correct scale=45) vs h*bh=200 (mutation, scale=90).
+        # sy = int(-((0-1.0)*45) + 50) = 95  vs  int(-((0-1.0)*90)+50) = 140.
+        sx, sy = to_screen(0.5, 0.0, 0.0, 1.0, 0.0, 2.0, 100, 100)
+        assert sx == 50
+        assert sy == 95
