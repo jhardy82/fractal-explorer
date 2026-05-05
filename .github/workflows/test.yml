@@ -80,7 +80,7 @@ jobs:
           path: artifacts/
 
   # ──────────────────────────────────────────────────────────────────────────
-  3d-integration:
+  integration-3d:
     runs-on: ubuntu-latest
     needs: unit
     steps:
@@ -174,7 +174,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   summary:
     runs-on: ubuntu-latest
-    needs: [unit, integration, 3d-integration, regression, property, mutation]
+    needs: [unit, integration, integration-3d, regression, property, mutation]
     if: always()
     steps:
       - uses: actions/download-artifact@v4
@@ -187,7 +187,7 @@ jobs:
           echo "|---|---|"                 >> $GITHUB_STEP_SUMMARY
           echo "| Unit | ${{ needs.unit.result }} |"               >> $GITHUB_STEP_SUMMARY
           echo "| Integration | ${{ needs.integration.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 3D Integration | ${{ needs.3d-integration.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 3D Integration | ${{ needs.integration-3d.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Regression | ${{ needs.regression.result }} |"   >> $GITHUB_STEP_SUMMARY
           echo "| Property (Hypothesis) | ${{ needs.property.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Mutation | ${{ needs.mutation.result }} |"       >> $GITHUB_STEP_SUMMARY
