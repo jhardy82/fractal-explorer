@@ -261,7 +261,7 @@ class _MandelbulbDE(Fractal3D):
 class _MandelboxDE(Fractal3D):
     name = "Mandelbox"
     info = "Box-fold + sphere-fold + linear scale · Tom Lowe 2010"
-    iter_count = 12
+    iter_count = 10         # 10 iters visually equivalent; saves ~17% DE time vs 12
     rows_per_frame = 5      # 5 × 30 = 150 rows; first pass at frame 24 → ~17% less work
     max_steps = 36          # reduced from 48; Mandelbox converges well within 36 marches
     bailout = 1024.0
@@ -275,22 +275,29 @@ class _MandelboxDE(Fractal3D):
     def DE(self, p):
         z = p.copy()
         dr = np.ones(p.shape[0], dtype=np.float32) * self.scale
+        # precompute loop-invariant constants
+        fl = self.fold_limit
+        mr2 = self.min_radius * self.min_radius
+        fr2 = self.fixed_radius * self.fixed_radius
+        ratio_inner = fr2 / mr2   # constant — was recomputed each iteration
+        sc = self.scale
+        abs_sc = abs(sc)
         for _ in range(self.iter_count):
             # box fold
-            z = np.clip(z, -self.fold_limit, self.fold_limit) * 2.0 - z
-            # sphere fold
-            r2 = (z * z).sum(axis=1, keepdims=True)
-            cond_inner = (r2 < self.min_radius * self.min_radius)
-            cond_mid = ((r2 >= self.min_radius * self.min_radius) &
-                        (r2 < self.fixed_radius * self.fixed_radius))
-            ratio_inner = (self.fixed_radius * self.fixed_radius) / (self.min_radius * self.min_radius)
-            ratio_mid = (self.fixed_radius * self.fixed_radius) / (r2 + 1e-9)
-            z = np.where(cond_inner, z * ratio_inner, z)
-            z = np.where(cond_mid, z * ratio_mid, z)
-            dr = np.where(cond_inner.flatten(), dr * ratio_inner, dr)
-            dr = np.where(cond_mid.flatten(), dr * ratio_mid.flatten(), dr)
-            z = z * self.scale + p
-            dr = dr * abs(self.scale) + 1.0
+            z = np.clip(z, -fl, fl) * 2.0 - z
+            # sphere fold — flat r2 avoids keepdims reshape overhead
+            r2 = (z * z).sum(axis=1)
+            cond_inner = r2 < mr2
+            cond_mid = (r2 >= mr2) & (r2 < fr2)
+            if cond_inner.any():
+                z[cond_inner] *= ratio_inner
+                dr[cond_inner] *= ratio_inner
+            if cond_mid.any():
+                ratio_mid = fr2 / (r2[cond_mid] + 1e-9)
+                z[cond_mid] *= ratio_mid[:, None]
+                dr[cond_mid] *= ratio_mid
+            z = z * sc + p
+            dr = dr * abs_sc + 1.0
         r = np.linalg.norm(z, axis=1)
         return r / np.abs(dr + 1e-9)
 
