@@ -6,6 +6,8 @@ missing term) breaks at least one test.  Tests are arranged by function.
 """
 from __future__ import annotations
 
+import math
+
 import pytest
 from mutation_target import (
     expand_lsystem,
@@ -65,6 +67,24 @@ class TestMandelbrotIter:
         result = mandelbrot_iter(1.0, 1.0, 100)
         assert 0 < result < 100
 
+    def test_exact_escape_complex_c(self):
+        # c=(0.5, 0.5): both cx and cy non-zero so 2.0*zx*zy term is exercised.
+        # Hand-traced: orbit escapes at iteration 5.
+        # Kills: initial-value mutants (zx→1.0), zy-coefficient mutants (2.0→3.0),
+        #        zx update sign mutants (zx2-zy2 → zx2+zy2), return-i mutants.
+        assert mandelbrot_iter(0.5, 0.5, 100) == 5
+
+    def test_boundary_strict_greater_than(self):
+        # c=(2, 0): orbit step gives |z|²=4.0 exactly at iter 1.
+        # Strict > means 4.0 does NOT escape; iter 2 gives |z|²=36 → return 2.
+        # Kills: > → >= mutation (which would return 1).
+        assert mandelbrot_iter(2.0, 0.0, 100) == 2
+
+    def test_escape_condition_sum_not_difference(self):
+        # c=(0.3, 1.9): at iter 2, zy²≈9.24 > zx²≈10.37; zx²+zy²=19.6>4 but zx²-zy²<4.
+        # If + becomes -: escape does not occur at iter 2 → different return value.
+        assert mandelbrot_iter(0.3, 1.9, 100) == 2
+
 
 # ── julia_iter ──────────────────────────────────────────────────────────────
 
@@ -93,6 +113,29 @@ class TestJuliaIter:
         r = julia_iter(0.5, 0.5, 0.0, 0.0, 100)
         # either escapes or doesn't, but must be a valid count
         assert 0 <= r <= 100
+
+    def test_exact_escape_at_iteration_2(self):
+        # z=(1,1), c=0: step 0: z²=(0, 2), |z|²=4 NOT >4 (strict); step 1: z=(-4,0) → return 2.
+        # Kills: zy-coefficient mutants (2.0→3.0 gives zy=3 at step 0 → escape at iter 1),
+        #        >→>= mutants (|z|²=4 at step 1 would escape early → return 1),
+        #        zx-update sign mutants.
+        assert julia_iter(1.0, 1.0, 0.0, 0.0, 100) == 2
+
+    def test_exact_escape_at_iteration_1(self):
+        # z=(1.5, 0), c=0: z₀²=(2.25,0), 2.25<4. z₁=(2.25,0): 5.06>4 → return 1.
+        # Kills: return-i±1 mutants.
+        assert julia_iter(1.5, 0.0, 0.0, 0.0, 100) == 1
+
+    def test_boundary_strict_greater_than(self):
+        # z=(0, 2), c=0: |z₀|²=4 NOT >4 (strict); z₁=(-4, 0): 16>4 → return 1.
+        # Kills: > → >= (which returns 0 at step 0).
+        assert julia_iter(0.0, 2.0, 0.0, 0.0, 100) == 1
+
+    def test_escape_condition_sum_not_difference(self):
+        # z=(1, 2), c=0: |z|²=1+4=5>4 → return 0.
+        # With zx²-zy²=1-4=-3: -3>4 is False → does NOT escape at step 0.
+        # Kills: + → - mutation in the escape condition check.
+        assert julia_iter(1.0, 2.0, 0.0, 0.0, 100) == 0
 
 
 # ── smooth_colour ───────────────────────────────────────────────────────────
@@ -125,6 +168,14 @@ class TestSmoothColour:
         r5 = smooth_colour(5, 3.0, 0.0, 100)
         r6 = smooth_colour(6, 3.0, 0.0, 100)
         assert abs(r6 - r5 - 1.0) < 0.5     # roughly 1 apart, not wildly different
+
+    def test_nonzero_zy_component(self):
+        # All other tests use zy=0, making +zy² and -zy² identical.
+        # zx=3, zy=4: zx²+zy²=25. With -zy² mutation: log(-7) → ValueError → mutant killed.
+        zx, zy = 3.0, 4.0
+        log_zn = math.log(zx * zx + zy * zy) / 2.0
+        nu = math.log(log_zn / math.log(2.0)) / math.log(2.0)
+        assert smooth_colour(5, zx, zy, 100) == pytest.approx(5 + 1.0 - nu, rel=1e-9)
 
 
 # ── lorenz_step ─────────────────────────────────────────────────────────────
@@ -295,3 +346,31 @@ class TestToScreen:
         sx, sy = to_screen(0.5, 0.5, *self.BBOX, 200, 100)
         assert sx == 100   # x-centre of 200
         assert sy == 50    # y-centre of 100
+
+    def test_offset_bbox_sx(self):
+        # bbox=[1,2]×[1,2]: bw=bx1-bx0=1, not bx1+bx0=3. scale=90.
+        # wx=2.0: sx = (2-1.5)*90 + 50 = 95
+        sx, sy = to_screen(2.0, 1.5, 1.0, 2.0, 1.0, 2.0, 100, 100)
+        assert sx == 95
+        assert sy == 50
+
+    def test_offset_bbox_sy(self):
+        # bbox=[1,2]×[1,2]: bh=by1-by0=1. wy=2.0: sy = -((2-1.5)*90) + 50 = 5
+        sx, sy = to_screen(2.0, 2.0, 1.0, 2.0, 1.0, 2.0, 100, 100)
+        assert sx == 95
+        assert sy == 5
+
+    def test_scale_uses_min_not_max(self):
+        # 200×100 canvas, unit bbox: bw-limited scale=min(200,100)*0.9=90.
+        # With max: scale=180. wx=0.0 is off-centre, so sx distinguishes.
+        # sx = (0-0.5)*90 + 100 = 55  (max would give (0-0.5)*180+100 = 10)
+        sx, sy = to_screen(0.0, 0.5, 0.0, 1.0, 0.0, 1.0, 200, 100)
+        assert sx == 55
+        assert sy == 50
+
+    def test_non_square_bbox_min_picks_smaller(self):
+        # bbox=[0,2]×[0,1]: bw=2 → w/bw=50, bh=1 → h/bh=100. min=50. scale=45.
+        # With max(→100): scale=90. wx=2.0 → sx=(2-1)*45+50=95  vs  (2-1)*90+50=140.
+        sx, sy = to_screen(2.0, 0.5, 0.0, 2.0, 0.0, 1.0, 100, 100)
+        assert sx == 95
+        assert sy == 50
