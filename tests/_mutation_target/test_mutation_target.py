@@ -7,7 +7,6 @@ missing term) breaks at least one test.  Tests are arranged by function.
 from __future__ import annotations
 
 import pytest
-
 from mutation_target import (
     expand_lsystem,
     henon_step,
@@ -17,7 +16,6 @@ from mutation_target import (
     smooth_colour,
     to_screen,
 )
-
 
 # ── mandelbrot_iter ─────────────────────────────────────────────────────────
 

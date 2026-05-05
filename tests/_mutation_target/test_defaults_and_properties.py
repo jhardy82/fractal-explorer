@@ -15,7 +15,6 @@ from __future__ import annotations
 import math
 
 import pytest
-
 from mutation_target import (
     ESCAPE_RADIUS_SQ,
     HENON_A,
@@ -32,12 +31,11 @@ from mutation_target import (
     to_screen,
 )
 
-
 # ── ESCAPE_RADIUS_SQ = 4.0 ─────────────────────────────────────────────────
 
 class TestEscapeRadiusSq:
     def test_anchor_value(self):
-        assert ESCAPE_RADIUS_SQ == pytest.approx(4.0)
+        assert pytest.approx(4.0) == ESCAPE_RADIUS_SQ
 
     def test_point_just_inside_does_not_escape_immediately(self):
         # c = (1.99, 0): |c|² = 3.96 < 4 → z₁ = c, not yet escaped at iter 0
@@ -71,7 +69,7 @@ class TestEscapeRadiusSq:
 
 class TestLorenzSigma:
     def test_anchor_value(self):
-        assert LORENZ_SIGMA == pytest.approx(10.0)
+        assert pytest.approx(10.0) == LORENZ_SIGMA
 
     def test_sigma_drives_x_derivative(self):
         # dx = σ*(y-x); with x=0, y=1: dx=σ*1=10 → x += 10*dt = 0.05
@@ -87,7 +85,7 @@ class TestLorenzSigma:
 
 class TestLorenzRho:
     def test_anchor_value(self):
-        assert LORENZ_RHO == pytest.approx(28.0)
+        assert pytest.approx(28.0) == LORENZ_RHO
 
     def test_rho_drives_y_derivative(self):
         # dy = x*(ρ-z) - y; with x=1, y=0, z=0: dy=1*(28-0)-0=28 → y += 28*dt = 0.14
@@ -103,7 +101,7 @@ class TestLorenzRho:
 
 class TestLorenzBeta:
     def test_anchor_value(self):
-        assert LORENZ_BETA == pytest.approx(8.0 / 3.0)
+        assert pytest.approx(8.0 / 3.0) == LORENZ_BETA
 
     def test_beta_drives_z_derivative(self):
         # dz = x*y - β*z; with x=0, y=0, z=1: dz = -β*1 = -8/3
@@ -122,7 +120,7 @@ class TestLorenzBeta:
 
 class TestLorenzDt:
     def test_anchor_value(self):
-        assert LORENZ_DT == pytest.approx(0.005)
+        assert pytest.approx(0.005) == LORENZ_DT
 
     def test_dt_scales_the_step(self):
         # x=0, y=1, z=0 → dx=10; x += 10*dt = 10*0.005 = 0.05
@@ -139,7 +137,7 @@ class TestLorenzDt:
 
 class TestHenonA:
     def test_anchor_value(self):
-        assert HENON_A == pytest.approx(1.4)
+        assert pytest.approx(1.4) == HENON_A
 
     def test_a_drives_quadratic_term(self):
         # henon_step(1, 0): x' = 1 - A*1² + 0 = 1 - 1.4 = -0.4
@@ -155,7 +153,7 @@ class TestHenonA:
 
 class TestHenonB:
     def test_anchor_value(self):
-        assert HENON_B == pytest.approx(0.3)
+        assert pytest.approx(0.3) == HENON_B
 
     def test_b_drives_contraction(self):
         # henon_step(1, 0): y' = B*x = 0.3*1 = 0.3
