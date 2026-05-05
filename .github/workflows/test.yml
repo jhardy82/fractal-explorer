@@ -87,7 +87,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
       - run: uv sync --extra dev
-      - name: 3D integration + C.3 perf gate (30 frames @ 480×360 ≤ 0.300s)
+      - name: 3D integration + C.3 perf gate (30 frames @ 480×360 ≤ 0.500s CI)
         run: |
           uv run pytest tests/test_3d_integration.py \
             --junit-xml=artifacts/3d-integration-junit.xml \

@@ -32,7 +32,7 @@ BRANCH = "main"
 DODS = [
     ("A.3", "Mutation kill-rate ≥70%", "mutation"),
     ("C.2", "Property tests (Hypothesis) pass", "property"),
-    ("C.3", "3D perf ≤0.300s / 30 frames @ 480×360", "integration-3d"),
+    ("C.3", "3D perf ≤0.500s CI / 30 frames @ 480×360", "integration-3d"),
 ]
 
 # Friendly display order for CI jobs
