@@ -134,7 +134,7 @@ jobs:
       - name: mutmut run
         working-directory: tests/_mutation_target
         run: |
-          uv run mutmut run || echo "mutmut completed with non-zero (some mutants survived — that's normal)"
+          uv run mutmut run 2>&1 | tee mutmut_run.log || true
 
       - name: kill-rate gate
         working-directory: tests/_mutation_target
@@ -149,6 +149,7 @@ jobs:
           name: mutation-results
           path: |
             artifacts/mutmut_results.txt
+            tests/_mutation_target/mutmut_run.log
             tests/_mutation_target/mutmut-stats.json
 
   # ──────────────────────────────────────────────────────────────────────────
