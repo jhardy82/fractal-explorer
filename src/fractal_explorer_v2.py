@@ -47,8 +47,21 @@ import colorsys
 import math
 import random
 
+import numba
 import numpy as np
 import pygame
+
+
+@numba.jit(nopython=True, cache=False)
+def _numba_escape_kernel(zr: float, zi: float, cr: float, ci: float, max_iter: int) -> int:
+    """Scalar Mandelbrot/Julia escape-time kernel compiled by Numba."""
+    for i in range(1, max_iter + 1):
+        zr2 = zr * zr - zi * zi + cr
+        zi = 2.0 * zr * zi + ci
+        zr = zr2
+        if zr * zr + zi * zi > 4.0:
+            return i
+    return 0
 
 # ──────────────────────────────────────────────────────────────────────────────
 # CONSTANTS
@@ -102,6 +115,9 @@ class FractalPage:
     name = "Page"
     category = "B"
     info = ""
+    PARAM_DEFAULTS: dict = {}
+    param_step: float = 0.01
+    scroll_step: float = 0.01
 
     def __init__(self, w: int, h: int):
         self.w = w
@@ -123,6 +139,18 @@ class FractalPage:
     def draw(self, screen: pygame.Surface) -> None:
         """Draw page contents into the body region (full screen minus chrome)."""
         pass
+
+    def tweak_param(self, delta: float) -> None:
+        """Adjust the primary tweakable parameter by delta. Subclasses override."""
+        pass
+
+    def reset_params(self) -> None:
+        """Restore all tweakable parameters to PARAM_DEFAULTS and trigger re-render."""
+        pass
+
+    def get_param_display(self) -> str:
+        """Return a HUD string showing the current tweakable parameter value."""
+        return ""
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -198,12 +226,28 @@ class JuliaFractal(EscapeTimeFractal):
     c_const = complex(-0.79, 0.15)
     x_range = (-1.7, 1.7)
     y_range = (-1.0, 1.0)
+    param_step: float = 0.01
+    scroll_step: float = 0.01
+    PARAM_DEFAULTS: dict = {"c_const": complex(-0.79, 0.15)}
 
     def iter_step(self, z, c):
         return z * z + self.c_const
 
     def z0(self, c):
         return c.copy()
+
+    def tweak_param(self, delta: float) -> None:
+        self.c_const = complex(self.c_const.real + delta, self.c_const.imag)
+        self.row = 0
+
+    def reset_params(self) -> None:
+        self.c_const = type(self).PARAM_DEFAULTS["c_const"]
+        self.row = 0
+
+    def get_param_display(self) -> str:
+        r, i = self.c_const.real, self.c_const.imag
+        sign = "+" if i >= 0 else "-"
+        return f"c = {r:.2f}{sign}{abs(i):.5f}i"
 
 
 class Mandelbrot(EscapeTimeFractal):
@@ -217,6 +261,7 @@ class Julia1(JuliaFractal):
     info = "z ↦ z² + c, c fixed · classic spiral form"
     c_const = complex(-0.79, 0.15)
     palette_offset = 0.85
+    PARAM_DEFAULTS: dict = {"c_const": complex(-0.79, 0.15)}
 
 
 class Julia2(JuliaFractal):
@@ -224,6 +269,7 @@ class Julia2(JuliaFractal):
     info = "z ↦ z² + c · dendrite-like form"
     c_const = complex(-0.7, 0.27015)
     palette_offset = 0.05
+    PARAM_DEFAULTS: dict = {"c_const": complex(-0.7, 0.27015)}
 
 
 class BurningShip(EscapeTimeFractal):
@@ -1696,9 +1742,46 @@ class FractalExplorer:
         pygame.quit()
 
 
+def export_screenshot(page: FractalPage, dest_dir=None):
+    """Save the page's current surface as a timestamped PNG.
+
+    Returns the Path of the written file. Prints the path to stdout.
+    dest_dir defaults to the current working directory.
+    """
+    from datetime import datetime
+    from pathlib import Path
+    dest = Path(dest_dir) if dest_dir is not None else Path.cwd()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"fractal_{page.__class__.__name__}_{timestamp}.png"
+    path = dest / filename
+    page.ensure_init()
+    surf = pygame.Surface((page.w, page.h))
+    page.draw(surf)
+    pygame.image.save(surf, str(path))
+    print(f"Saved: {path}")
+    return path  # pathlib.Path
+
+
 def main():
     explorer = FractalExplorer()
     explorer.run()
+
+
+# ── v0.3.0 extension modules (registered after PAGE_CLASSES is fully built) ───
+try:
+    from fractal_newton import Newton4, Newton5, Newton6
+
+    PAGE_CLASSES["A"].extend([Newton4, Newton5, Newton6])
+except ImportError:
+    pass  # module not yet present during early development
+
+
+try:
+    from fractal_kleinian import KleinianLimitSet
+
+    PAGE_CLASSES["B"].append(KleinianLimitSet)
+except ImportError:
+    pass  # module not yet present during early development
 
 
 if __name__ == "__main__":

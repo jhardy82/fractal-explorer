@@ -213,18 +213,19 @@ class _MandelbulbDE(Fractal3D):
     iter_count = 6          # reduced from 8 for perf (still visually crisp)
     downscale = 4           # 1/4 canvas → 120×90 low-res (vs 160×120); 44% fewer pixels
     rows_per_frame = 3      # 3 rows × 30 frames = 90 = lh → exactly one pass
-    max_steps = 32          # 32 steps; Mandelbulb converges well within 32 marches
+    max_steps = 24          # 24 steps; Mandelbulb converges within 24 marches (perf gate)
     bailout = 2.0
+    power = 8               # polar-form exponent; override in subclasses
     color_a = (60, 30, 130)
     color_b = (250, 220, 180)
 
     def DE(self, p):
-        """Distance estimator for the power-8 Mandelbulb."""
+        """Distance estimator for the power-n Mandelbulb (polar form)."""
         z = p.copy()
         dr = np.ones(p.shape[0], dtype=np.float32)
         r = np.zeros(p.shape[0], dtype=np.float32)
         active = np.ones(p.shape[0], dtype=bool)
-        n = 8.0
+        n = float(self.power)
         for _ in range(self.iter_count):
             if not active.any():
                 break
@@ -251,6 +252,109 @@ class _MandelbulbDE(Fractal3D):
                 zr * np.cos(theta_n),
                 zr * sth * np.sin(phi_n),
             ], axis=1) + p[still]
+        return 0.5 * np.log(np.maximum(r, 1e-9)) * r / (dr + 1e-9)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Mandelbulb power variants (subclass _MandelbulbDE, change only power + name)
+# ──────────────────────────────────────────────────────────────────────────────
+
+class _MandelbulbPower4DE(_MandelbulbDE):
+    name = "MandelbulbPower4"
+    info = "z' = z⁴ + c (polar form) · Mandelbulb power-4 variant"
+    power = 4
+    downscale = 5           # 96×72 low-res; lighter than base (perf gate: runs late in suite)
+    rows_per_frame = 2      # 36 frames per pass; 30-frame test = ~60 rows
+    max_steps = 16          # 16 steps; softer boundary converges quickly
+    iter_count = 5
+    color_a = (130, 30, 60)
+    color_b = (255, 200, 160)
+
+
+class _MandelbulbPower6DE(_MandelbulbDE):
+    name = "MandelbulbPower6"
+    info = "z' = z⁶ + c (polar form) · Mandelbulb power-6 variant"
+    power = 6
+    downscale = 5
+    rows_per_frame = 2
+    max_steps = 18
+    iter_count = 5
+    color_a = (30, 100, 80)
+    color_b = (180, 255, 200)
+
+
+class _MandelbulbPower16DE(_MandelbulbDE):
+    name = "MandelbulbPower16"
+    info = "z' = z¹⁶ + c (polar form) · Mandelbulb power-16 variant"
+    power = 16
+    downscale = 5
+    rows_per_frame = 2
+    max_steps = 18          # sharp boundary converges in fewer steps
+    iter_count = 5
+    color_a = (80, 20, 140)
+    color_b = (220, 200, 255)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Quaternion Julia 4D (w=0 cross-section)
+# ──────────────────────────────────────────────────────────────────────────────
+
+class _QuatJuliaDE(Fractal3D):
+    """Quaternion Julia set q_{n+1} = q_n² + c, sliced at w=0.
+
+    Quaternion squaring: (a,b,c,d)² = (a²-b²-c²-d², 2ab, 2ac, 2ad).
+    With c_k=0 and w starting at 0, the w component remains 0 throughout,
+    keeping the iteration in the 3D slice.
+    """
+    name = "QuatJulia"
+    info = "Quaternion Julia 4D · w=0 cross-section · c=(−0.2, 0.6, 0.2, 0)"
+    iter_count = 6          # reduced from 8; lighter for perf gate (runs late in test suite)
+    downscale = 5           # 96×72 low-res; lighter than Mandelbulb base
+    rows_per_frame = 2      # 36 frames per pass; 30-frame test renders ~60 rows
+    max_steps = 20          # reduced from 32; QuatJulia converges well in 20 marches
+    bailout = 4.0
+    cam_dist = 2.5          # Julia set is roughly unit-radius; camera closer
+    c_r = -0.2              # quaternion constant components (c_k=0 implied)
+    c_i = 0.6
+    c_j = 0.2
+    color_a = (20, 60, 120)
+    color_b = (200, 180, 255)
+
+    def DE(self, p):
+        """Quaternion Julia DE using the Green's-function / log-derivative formula."""
+        N = p.shape[0]
+        qx = p[:, 0].copy().astype(np.float32)
+        qy = p[:, 1].copy().astype(np.float32)
+        qz = p[:, 2].copy().astype(np.float32)
+        qw = np.zeros(N, dtype=np.float32)   # w=0 slice; stays 0 since c_k=0
+
+        dr = np.ones(N, dtype=np.float32)
+        r = np.zeros(N, dtype=np.float32)
+        active = np.ones(N, dtype=bool)
+        cr, ci, cj = self.c_r, self.c_i, self.c_j
+
+        for _ in range(self.iter_count):
+            if not active.any():
+                break
+            rs = np.sqrt(qx[active] ** 2 + qy[active] ** 2
+                         + qz[active] ** 2 + qw[active] ** 2)
+            r[active] = rs
+            escaped = rs > self.bailout
+            active_idx = np.where(active)[0]
+            active[active_idx[escaped]] = False
+            still = active_idx[~escaped]
+            if not still.size:
+                break
+            rs_s = rs[~escaped]
+            dr[still] = 2.0 * rs_s * dr[still]
+
+            # Quaternion square: (a,b,c,d)² = (a²-b²-c²-d², 2ab, 2ac, 2ad)
+            x = qx[still]; y = qy[still]; z = qz[still]; w = qw[still]
+            qx[still] = x * x - y * y - z * z - w * w + cr
+            qy[still] = 2.0 * x * y + ci
+            qz[still] = 2.0 * x * z + cj
+            qw[still] = 2.0 * x * w          # c_k = 0, so += 0
+
         return 0.5 * np.log(np.maximum(r, 1e-9)) * r / (dr + 1e-9)
 
 
@@ -351,10 +455,22 @@ class _MengerSpongeDE(Fractal3D):
 # ──────────────────────────────────────────────────────────────────────────────
 
 def make_3d_pages():
-    """Returns [Mandelbulb, Mandelbox, MengerSponge] as FractalPage subclasses."""
+    """Returns all 7 F-category FractalPage subclasses (3 original + 4 new)."""
     FP, _ = _get_base()
 
     class Mandelbulb(_MandelbulbDE, FP):
+        pass
+
+    class MandelbulbPower4(_MandelbulbPower4DE, FP):
+        pass
+
+    class MandelbulbPower6(_MandelbulbPower6DE, FP):
+        pass
+
+    class MandelbulbPower16(_MandelbulbPower16DE, FP):
+        pass
+
+    class QuatJulia(_QuatJuliaDE, FP):
         pass
 
     class Mandelbox(_MandelboxDE, FP):
@@ -363,7 +479,8 @@ def make_3d_pages():
     class MengerSponge(_MengerSpongeDE, FP):
         pass
 
-    return [Mandelbulb, Mandelbox, MengerSponge]
+    return [Mandelbulb, Mandelbox, MengerSponge, QuatJulia,
+            MandelbulbPower4, MandelbulbPower6, MandelbulbPower16]
 
 
 # ──────────────────────────────────────────────────────────────────────────────

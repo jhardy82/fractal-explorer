@@ -16,9 +16,9 @@ class TestAllPagesLifecycle:
     """Every one of the 48 pages must instantiate, reset, and survive 30 frames."""
 
     def test_total_page_count(self, all_page_classes):
-        # Anchor: the project ships with 48 forms.
-        assert len(all_page_classes) == 48, (
-            f"Expected 48 pages, got {len(all_page_classes)}. "
+        # Anchor: v0.2.0 had 48; v0.3.0 adds Newton4/5/6 (A) + KleinianLimitSet (B) = 52.
+        assert len(all_page_classes) == 52, (
+            f"Expected 52 pages, got {len(all_page_classes)}. "
             "If the count changed, update this anchor."
         )
 

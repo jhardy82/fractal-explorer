@@ -33,6 +33,9 @@ DODS = [
     ("A.3", "Mutation kill-rate ≥70%", "mutation"),
     ("C.2", "Property tests (Hypothesis) pass", "property"),
     ("C.3", "3D perf ≤0.500s CI / 30 frames @ 480×360", "integration-3d"),
+    # v0.3.0
+    ("D.1", "Numba ≥60fps @ 800×600 (escape-time)", "perf-numba"),
+    ("D.2", "Wheel builds cleanly (hatch)", "build"),
 ]
 
 # Friendly display order for CI jobs
@@ -41,6 +44,7 @@ JOB_ORDER = [
     "unit (3.11)", "unit (3.12)", "unit (3.13)",
     "integration", "integration-3d",
     "regression", "property", "mutation",
+    "perf-numba", "build",
 ]
 
 

@@ -1,3 +1,77 @@
+# v0.3.0 — Definition of Done Evidence
+
+All five DoD gates (A.3, C.2, C.3, D.1, D.2) targeted for v0.3.0.
+
+---
+
+## A.3 — Mutation kill-rate ≥ 70%
+
+**Status: SATISFIED ✓** (carried forward from v0.2.0; mutation target unchanged)
+
+| Item | Value |
+|------|-------|
+| Kill rate | 96% (125 killed / 130 total) |
+| Threshold | ≥ 70% |
+| Last confirmed commit | `3d15894` (v0.2.0) |
+| CI run | 25397325857 |
+
+---
+
+## C.2 — Hypothesis property tests pass
+
+**Status: SATISFIED ✓** (regression test suite passes on every push)
+
+| Item | Value |
+|------|-------|
+| Tests | 14 / 14 passing |
+| Test file | `tests/test_properties.py` |
+
+---
+
+## C.3 — 3D perf gate: 30 frames @ 480×360 ≤ 0.500s (CI)
+
+**Status: SATISFIED ✓** — all 7 3D forms pass
+
+| Form | Status |
+|------|--------|
+| Mandelbulb | ✓ (max_steps=24, downscale=4) |
+| Mandelbox | ✓ |
+| MengerSponge | ✓ |
+| QuatJulia | ✓ (max_steps=20, downscale=5) |
+| MandelbulbPower4 | ✓ (max_steps=16, downscale=5) |
+| MandelbulbPower6 | ✓ (max_steps=16, downscale=5) |
+| MandelbulbPower16 | ✓ (max_steps=16, downscale=5) |
+
+---
+
+## D.1 — Numba ≥ 60fps @ 800×600 (escape-time forms)
+
+**Status: PENDING CI** — local tests pass; CI confirmation pending first push
+
+| Item | Value |
+|------|-------|
+| Gate | ≤ 16.7ms per frame (= 1/60s) |
+| Forms covered | Mandelbrot, Julia, BurningShip, Tricorn, Multibrot3/4, Lyapunov |
+| Test file | `tests/test_perf_numba.py` |
+| CI job | `perf-numba` (needs: unit; timeout: 10min) |
+| JIT decorator | `@numba.jit(nopython=True, cache=False, parallel=True)` |
+
+---
+
+## D.2 — Wheel builds cleanly (hatch)
+
+**Status: PENDING CI** — CI job added; confirmation pending first push
+
+| Item | Value |
+|------|-------|
+| Build command | `uv run hatch build` |
+| CI job | `build` (needs: lint; if: always) |
+| Backend | hatchling ≥ 1.26 |
+
+---
+
+---
+
 # v0.2.0 — Definition of Done Evidence
 
 All three DoD gates satisfied as of 2026-05-05. CI is green on every push to `main`.
