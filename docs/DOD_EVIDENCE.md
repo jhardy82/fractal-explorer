@@ -1,6 +1,7 @@
 # v0.3.0 — Definition of Done Evidence
 
-All five DoD gates (A.3, C.2, C.3, D.1, D.2) targeted for v0.3.0.
+All five DoD gates satisfied as of 2026-05-05. CI run 25406092338 is green on every job.
+Green commit: `3b35021` (fix(regression): restore Ubuntu baselines).
 
 ---
 
@@ -46,26 +47,27 @@ All five DoD gates (A.3, C.2, C.3, D.1, D.2) targeted for v0.3.0.
 
 ## D.1 — Numba ≥ 60fps @ 800×600 (escape-time forms)
 
-**Status: PENDING CI** — local tests pass; CI confirmation pending first push
+**Status: SATISFIED ✓**
 
 | Item | Value |
 |------|-------|
 | Gate | ≤ 16.7ms per frame (= 1/60s) |
 | Forms covered | Mandelbrot, Julia, BurningShip, Tricorn, Multibrot3/4, Lyapunov |
 | Test file | `tests/test_perf_numba.py` |
-| CI job | `perf-numba` (needs: unit; timeout: 10min) |
+| CI job | `perf-numba` — green on run 25406092338 |
 | JIT decorator | `@numba.jit(nopython=True, cache=False, parallel=True)` |
+| Hard dep | numba>=0.59,<1.0 |
 
 ---
 
 ## D.2 — Wheel builds cleanly (hatch)
 
-**Status: PENDING CI** — CI job added; confirmation pending first push
+**Status: SATISFIED ✓**
 
 | Item | Value |
 |------|-------|
 | Build command | `uv run hatch build` |
-| CI job | `build` (needs: lint; if: always) |
+| CI job | `build` — green on run 25406092338 |
 | Backend | hatchling ≥ 1.26 |
 
 ---
