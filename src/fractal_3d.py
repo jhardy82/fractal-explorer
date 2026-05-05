@@ -310,6 +310,9 @@ class _MengerSpongeDE(Fractal3D):
     name = "Menger Sponge"
     info = "3D Sierpiński-Carpet analogue · 27→20 cube subdivision · Menger 1926"
     iter_count = 5
+    downscale = 4           # 1/4 canvas → 120×90 low-res; matches Mandelbulb pixel budget
+    rows_per_frame = 3      # 3 × 30 frames = 90 = lh → exactly one pass per 30 updates
+    max_steps = 36          # IFS-fold DE converges faster than Mandelbulb; 36 steps sufficient
     color_a = (90, 60, 50)
     color_b = (240, 200, 150)
 
