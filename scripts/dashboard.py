@@ -17,7 +17,7 @@ import re
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from rich.columns import Columns
 from rich.console import Console
@@ -121,12 +121,13 @@ def build_jobs_table(jobs: list[dict]) -> Table:
         duration = ""
         started = j.get("startedAt")
         completed = j.get("completedAt")
-        if started and completed:
+        if started and completed and j.get("conclusion"):
             try:
                 s = datetime.fromisoformat(started.replace("Z", "+00:00"))
                 c = datetime.fromisoformat(completed.replace("Z", "+00:00"))
                 secs = int((c - s).total_seconds())
-                duration = f"{secs // 60}m{secs % 60:02d}s"
+                if 0 < secs < 86400:   # guard against Go zero-time completedAt
+                    duration = f"{secs // 60}m{secs % 60:02d}s"
             except Exception:
                 pass
         t.add_row(name, cell, duration)
@@ -185,7 +186,7 @@ def render(console: Console) -> None:
         ("fractal-explorer", "bold cyan"),
         " · CI Dashboard · ",
         (BRANCH, "bold"),
-        f"   [{datetime.now(tz=timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}]",
+        f"   [{datetime.now(tz=UTC).strftime('%Y-%m-%d %H:%M UTC')}]",
     )
     console.print(Panel(header, expand=True))
 
