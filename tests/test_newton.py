@@ -95,8 +95,7 @@ class TestParameterRangeFinite:
         # Only skip z=0 exactly (pole of the iteration)
         if abs(z) < 1e-10:
             return
-        steps = 0
-        for steps in range(max_iter):
+        for _step in range(max_iter):
             denom = n * z ** (n - 1)
             if abs(denom) < 1e-12:
                 break
@@ -104,7 +103,6 @@ class TestParameterRangeFinite:
             if not (math.isfinite(z_new.real) and math.isfinite(z_new.imag)):
                 break
             z = z_new
-        assert steps < max_iter or True  # loop always exits — bounded by max_iter cap
 
 
 # ── Test 5: lifecycle for all subclasses ─────────────────────────────────────

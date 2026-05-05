@@ -11,10 +11,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-# conftest.py adds src/ to sys.path before this module is collected.
-# Will raise ImportError until src/fractal_kleinian.py exists.
 from fractal_kleinian import KleinianLimitSet
-
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -43,9 +40,9 @@ def _compose_mobius(T1: tuple, T2: tuple) -> tuple:
 class TestMobiusTransformComposition:
     def test_mobius_identity(self):
         """Identity transform f(z) = z must fix all test points."""
-        I = (1, 0, 0, 1)  # f(z) = (z+0)/(0z+1) = z
+        id_mat = (1, 0, 0, 1)  # f(z) = (z+0)/(0z+1) = z
         for z in [1+0j, 0+1j, 2+3j, -1-1j]:
-            assert abs(_mobius(z, *I) - z) < 1e-12
+            assert abs(_mobius(z, *id_mat) - z) < 1e-12
 
     def test_mobius_composition_correctness(self):
         """Composition T1∘T2 must match applying T2 then T1 manually."""
@@ -69,9 +66,6 @@ class TestMobiusTransformComposition:
         T_id = _compose_mobius(T, T_inv)
         # Composed should act as identity: T(T⁻¹(z)) ≈ z
         for z in [1+0j, 0+1j, 3+2j]:
-            w = _mobius(z, *T_id)
-            # Allow for proportional form: w/z should be constant
-            norm = T_id[0] * T_id[3] - T_id[1] * T_id[2]
             assert abs(_mobius(z, *T_id) - z) < abs(z) + 1  # near-identity up to scale
 
 

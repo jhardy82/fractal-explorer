@@ -299,7 +299,7 @@ class TestMandelbulbPowers:
         elapsed = time.perf_counter() - t0
         assert elapsed <= 0.500, f"{name}: {elapsed:.3f}s for 30 frames (CI limit 0.500s)"
 
-    @pytest.mark.parametrize("name,expected_power", list(zip(_NAMES, _POWERS)))
+    @pytest.mark.parametrize("name,expected_power", list(zip(_NAMES, _POWERS, strict=True)))
     def test_power_attribute(self, engine_with_3d, name, expected_power):
         """Each class must expose a `power` attribute matching its degree."""
         cls = self._get_class(engine_with_3d, name)
