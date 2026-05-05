@@ -139,22 +139,28 @@ jobs:
       - name: kill-rate gate
         working-directory: tests/_mutation_target
         run: |
-          mutmut results > ../../artifacts/mutmut_results.txt 2>&1 || true
-          KILLED=$(grep -c 'killed' ../../artifacts/mutmut_results.txt || echo 0)
-          SURVIVED=$(grep -c 'survived' ../../artifacts/mutmut_results.txt || echo 0)
+          mkdir -p ../../artifacts
+          uv run mutmut results 2>&1 | tee ../../artifacts/mutmut_results.txt || true
+          # grep -c exits 1 when count=0 but still prints "0"; using || true avoids
+          # the double-output bug that makes KILLED="0\n0" and breaks $((...))
+          KILLED=$(grep -ci 'killed' ../../artifacts/mutmut_results.txt || true)
+          SURVIVED=$(grep -ci 'survived' ../../artifacts/mutmut_results.txt || true)
+          KILLED=${KILLED:-0}
+          SURVIVED=${SURVIVED:-0}
           TOTAL=$((KILLED + SURVIVED))
-          if [ $TOTAL -eq 0 ]; then
-            echo "::error::No mutmut results parsed"; exit 1
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "::error::No mutmut results parsed — did mutmut run succeed? Check the mutmut-run step above."
+            exit 1
           fi
           PCT=$((KILLED * 100 / TOTAL))
           echo "Mutation kill rate: $KILLED / $TOTAL = $PCT%"
-          echo "MUTATION_KILL_RATE=$PCT" >> $GITHUB_ENV
+          echo "MUTATION_KILL_RATE=$PCT" >> "$GITHUB_ENV"
           # gate threshold (per doctrine §3.5 — 70% acceptable, 80% good, 90%+ strong)
-          if [ $PCT -lt 70 ]; then
+          if [ "$PCT" -lt 70 ]; then
             echo "::error::Kill rate $PCT% below 70% gate"
             exit 1
           fi
-          if [ $PCT -lt 80 ]; then
+          if [ "$PCT" -lt 80 ]; then
             echo "::warning::Kill rate $PCT% in 'acceptable' band (target ≥80%)"
           fi
 
