@@ -102,6 +102,8 @@ jobs:
   regression:
     runs-on: ubuntu-latest
     needs: unit
+    env:
+      NUMBA_DISABLE_JIT: "1"   # disable JIT so numpy rendering is cross-platform deterministic
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
