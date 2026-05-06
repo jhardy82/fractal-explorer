@@ -1673,6 +1673,7 @@ class FractalExplorer:
         self._pan_y_range: tuple[float, float] = (-1.25, 1.25)
         self._zoom_target_x: tuple[float, float] | None = None
         self._zoom_target_y: tuple[float, float] | None = None
+        self._cinematic: bool = False
 
         self.current.ensure_init()
 
@@ -1760,19 +1761,19 @@ class FractalExplorer:
         self.screen.blit(arrow_r, (self.w - 40 - arrow_r.get_width(),
                                    nav_y + (NAV_H - arrow_r.get_height()) // 2))
         # keys hint
-        hint = self.font_xs.render("← →  Tab  1-5  R  F  Esc", True, DIM)
+        hint = self.font_xs.render("← →  Tab  1-5  R  F  C  Esc", True, DIM)
         self.screen.blit(hint, ((self.w - hint.get_width()) // 2, nav_y + NAV_H - 12))
 
     def draw(self):
-        # body region: between TITLE_H and (h - NAV_H)
         self.screen.fill(BG)
         body_surface = pygame.Surface((self.w, self.body_h))
         body_surface.fill(BG)
-        page = self.current
-        # page renders into its own (w, body_h) surface; we blit
-        page.draw(body_surface)
-        self.screen.blit(body_surface, (0, TITLE_H))
-        self.draw_chrome()
+        self.current.draw(body_surface)
+        if self._cinematic:
+            self.screen.blit(body_surface, (0, 0))
+        else:
+            self.screen.blit(body_surface, (0, TITLE_H))
+            self.draw_chrome()
         pygame.display.flip()
 
     # ── main loop ───────────────────────────────────────────────────────────
@@ -1793,6 +1794,8 @@ class FractalExplorer:
                 self.reset_current()
             elif k == pygame.K_f:
                 self.toggle_fullscreen()
+            elif k == pygame.K_c:
+                self._cinematic = not self._cinematic
             elif pygame.K_1 <= k <= pygame.K_5:
                 self.jump_category(k - pygame.K_1)
         elif e.type == pygame.MOUSEWHEEL:
