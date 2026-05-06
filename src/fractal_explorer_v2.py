@@ -1652,6 +1652,8 @@ class FractalExplorer:
         self._pan_y0 = 0
         self._pan_x_range: tuple[float, float] = (-2.5, 1.0)
         self._pan_y_range: tuple[float, float] = (-1.25, 1.25)
+        self._zoom_target_x: tuple[float, float] | None = None
+        self._zoom_target_y: tuple[float, float] | None = None
 
         self.current.ensure_init()
 
@@ -1692,6 +1694,7 @@ class FractalExplorer:
 
     def reset_current(self):
         self.current.reset()
+        self._zoom_target_x = self._zoom_target_y = None
 
     def toggle_fullscreen(self):
         self.fullscreen = not self.fullscreen
@@ -1790,14 +1793,14 @@ class FractalExplorer:
                 t_y = body_mouse_y / body_h
                 new_xw = (x1 - x0) * factor
                 new_yh = (y1 - y0) * factor
-                page.x_range = (cx - t_x * new_xw, cx + (1 - t_x) * new_xw)
-                page.y_range = (cy - t_y * new_yh, cy + (1 - t_y) * new_yh)
-                page.row = 0
+                self._zoom_target_x = (cx - t_x * new_xw, cx + (1 - t_x) * new_xw)
+                self._zoom_target_y = (cy - t_y * new_yh, cy + (1 - t_y) * new_yh)
         elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
             page = self.current
             if isinstance(page, EscapeTimeFractal):
                 mouse_x, mouse_y = e.pos
                 if TITLE_H <= mouse_y < self.h - NAV_H:
+                    self._zoom_target_x = self._zoom_target_y = None
                     self._pan_active = True
                     self._pan_x0 = mouse_x
                     self._pan_y0 = mouse_y
@@ -1821,10 +1824,37 @@ class FractalExplorer:
         elif e.type == pygame.MOUSEBUTTONUP and e.button == 1:
             self._pan_active = False
 
+    def _tick_zoom(self) -> None:
+        if self._zoom_target_x is None:
+            return
+        page = self.current
+        if not isinstance(page, EscapeTimeFractal):
+            self._zoom_target_x = self._zoom_target_y = None
+            return
+        alpha = 0.25
+        cx0, cx1 = page.x_range
+        cy0, cy1 = page.y_range
+        tx0, tx1 = self._zoom_target_x
+        ty0, ty1 = self._zoom_target_y
+        nx0 = cx0 + alpha * (tx0 - cx0)
+        nx1 = cx1 + alpha * (tx1 - cx1)
+        ny0 = cy0 + alpha * (ty0 - cy0)
+        ny1 = cy1 + alpha * (ty1 - cy1)
+        err = max(abs(nx0 - tx0), abs(nx1 - tx1), abs(ny0 - ty0), abs(ny1 - ty1))
+        if err < 1e-10:
+            page.x_range = self._zoom_target_x
+            page.y_range = self._zoom_target_y
+            self._zoom_target_x = self._zoom_target_y = None
+        else:
+            page.x_range = (nx0, nx1)
+            page.y_range = (ny0, ny1)
+        page.row = 0
+
     def run(self):
         while self.running:
             for e in pygame.event.get():
                 self.handle_event(e)
+            self._tick_zoom()
             self.current.update(self.frame)
             self.draw()
             self.frame += 1
