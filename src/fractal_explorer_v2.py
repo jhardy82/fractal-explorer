@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import colorsys
 import datetime
+import json
 import math
 import pathlib
 import random
@@ -1852,6 +1853,10 @@ class FractalExplorer:
         self._kiosk_timer: int = 0
         self._cinematic_before_kiosk: bool = False
 
+        # Bookmark persistence state
+        self._bm_notice: int = 0           # countdown frames for bookmark notice
+        self._bm_notice_text: str = ""
+
         self.current.ensure_init()
 
     def _instantiate_pages(self):
@@ -1922,11 +1927,14 @@ class FractalExplorer:
         if self._recording:
             title += "  ● REC"
         self.screen.blit(self.font_big.render(title, True, cat_col), (12, 8))
-        # info on right — show GIF notice or normal page info
+        # info on right — show GIF notice or bookmark notice or normal page info
         if self._gif_notice > 0 and self._last_gif_path:
             notice_txt = f"GIF saved → {self._last_gif_path}"
             notice_surf = self.font_xs.render(notice_txt, True, (80, 240, 120))
             self.screen.blit(notice_surf, (self.w - notice_surf.get_width() - 12, 10))
+        elif self._bm_notice > 0 and self._bm_notice_text:
+            bm_notice_surf = self.font_xs.render(self._bm_notice_text, True, (120, 200, 255))
+            self.screen.blit(bm_notice_surf, (self.w - bm_notice_surf.get_width() - 12, 10))
         else:
             info_surface = self.font_xs.render(page.info, True, DIMMER)
             self.screen.blit(info_surface, (self.w - info_surface.get_width() - 12, 10))
@@ -1960,7 +1968,7 @@ class FractalExplorer:
         self.screen.blit(arrow_r, (self.w - 40 - arrow_r.get_width(),
                                    nav_y + (NAV_H - arrow_r.get_height()) // 2))
         # keys hint
-        hint = self.font_xs.render("← →  Tab  1-5  R  F  P  O  I  C  J  S  B  N  M  G  K  Esc", True, DIM)
+        hint = self.font_xs.render("← →  Tab  1-5  R  F  P  O  I  C  J  S  B  N  M  G  K  E  L  Esc", True, DIM)
         self.screen.blit(hint, ((self.w - hint.get_width()) // 2, nav_y + NAV_H - 12))
 
         # coordinate display for escape-time pages
@@ -2134,6 +2142,11 @@ class FractalExplorer:
                 else:
                     self._cinematic = self._cinematic_before_kiosk
                     self._kiosk = False
+            elif k == pygame.K_e:
+                if self._bookmarks:
+                    self._save_bookmarks()
+            elif k == pygame.K_l:
+                self._load_bookmarks()
             elif pygame.K_1 <= k <= pygame.K_5:
                 self.jump_category(k - pygame.K_1)
         elif e.type == pygame.MOUSEWHEEL:
@@ -2255,6 +2268,8 @@ class FractalExplorer:
         """Capture one frame from self.screen into _frames (call once per render tick)."""
         if self._gif_notice > 0:
             self._gif_notice -= 1
+        if self._bm_notice > 0:
+            self._bm_notice -= 1
 
         # Kiosk / screensaver per-frame update
         if self._kiosk:
@@ -2296,6 +2311,41 @@ class FractalExplorer:
         except Exception as e:
             self._gif_notice = GIF_NOTICE_FRAMES
             self._last_gif_path = f"ERROR: {e}"
+
+    def _save_bookmarks(self) -> None:
+        """Serialize _bookmarks to fractal_bookmarks.json in the working directory."""
+        try:
+            data = [
+                {"cat_idx": ci, "page_idx": pi,
+                 "x_range": list(xr), "y_range": list(yr)}
+                for ci, pi, xr, yr in self._bookmarks
+            ]
+            path = pathlib.Path("fractal_bookmarks.json")
+            path.write_text(json.dumps(data, indent=2))
+            self._bm_notice = GIF_NOTICE_FRAMES
+            self._bm_notice_text = f"Bookmarks saved → {path.name}"
+        except Exception as e:
+            self._bm_notice = GIF_NOTICE_FRAMES
+            self._bm_notice_text = f"Save error: {e}"
+
+    def _load_bookmarks(self) -> None:
+        """Load _bookmarks from fractal_bookmarks.json if it exists."""
+        try:
+            path = pathlib.Path("fractal_bookmarks.json")
+            if not path.exists():
+                return
+            data = json.loads(path.read_text())
+            self._bookmarks = [
+                (entry["cat_idx"], entry["page_idx"],
+                 tuple(entry["x_range"]), tuple(entry["y_range"]))
+                for entry in data
+            ]
+            self._bookmark_idx = len(self._bookmarks) - 1
+            self._bm_notice = GIF_NOTICE_FRAMES
+            self._bm_notice_text = f"Loaded {len(self._bookmarks)} bookmarks"
+        except Exception as e:
+            self._bm_notice = GIF_NOTICE_FRAMES
+            self._bm_notice_text = f"Load error: {e}"
 
     def run(self):
         while self.running:
