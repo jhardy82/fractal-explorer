@@ -286,6 +286,8 @@ class JuliaFractal(EscapeTimeFractal):
     param_step: float = 0.01
     scroll_step: float = 0.01
     PARAM_DEFAULTS: dict = {"c_const": complex(-0.79, 0.15)}
+    flight_speed: float = 0.0    # radians per frame; 0 = static
+    flight_radius: float = 0.75  # orbit radius in complex plane
 
     def iter_step(self, z, c):
         return z * z + self.c_const
@@ -305,6 +307,21 @@ class JuliaFractal(EscapeTimeFractal):
         r, i = self.c_const.real, self.c_const.imag
         sign = "+" if i >= 0 else "-"
         return f"c = {r:.2f}{sign}{abs(i):.5f}i"
+
+    def reset(self) -> None:
+        super().reset()
+        self._flight_angle: float = 0.0
+        self._c_const_base = type(self).c_const
+
+    def update(self, frame: int) -> None:
+        if self.flight_speed > 0:
+            self._flight_angle = frame * self.flight_speed
+            self.c_const = complex(
+                self.flight_radius * math.cos(self._flight_angle),
+                self.flight_radius * math.sin(self._flight_angle),
+            )
+            self.row = 0
+        super().update(frame)
 
 
 class Mandelbrot(EscapeTimeFractal):
@@ -1761,7 +1778,7 @@ class FractalExplorer:
         self.screen.blit(arrow_r, (self.w - 40 - arrow_r.get_width(),
                                    nav_y + (NAV_H - arrow_r.get_height()) // 2))
         # keys hint
-        hint = self.font_xs.render("← →  Tab  1-5  R  F  C  Esc", True, DIM)
+        hint = self.font_xs.render("← →  Tab  1-5  R  F  C  J  Esc", True, DIM)
         self.screen.blit(hint, ((self.w - hint.get_width()) // 2, nav_y + NAV_H - 12))
 
     def draw(self):
@@ -1796,6 +1813,15 @@ class FractalExplorer:
                 self.toggle_fullscreen()
             elif k == pygame.K_c:
                 self._cinematic = not self._cinematic
+            elif k == pygame.K_j:
+                page = self.current
+                if isinstance(page, JuliaFractal):
+                    if page.flight_speed > 0:
+                        page.flight_speed = 0.0
+                        page.c_const = page._c_const_base
+                    else:
+                        page.flight_speed = 0.02
+                    page.row = 0
             elif pygame.K_1 <= k <= pygame.K_5:
                 self.jump_category(k - pygame.K_1)
         elif e.type == pygame.MOUSEWHEEL:
