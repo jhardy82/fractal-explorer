@@ -103,6 +103,57 @@ def hsv_palette(n: int, sat: float = 0.78, val: float = 0.92, hue_offset: float 
     return arr
 
 
+def _gradient_palette(n: int, stops: list[tuple[int, int, int]]) -> np.ndarray:
+    """Interpolate between RGB control points to produce (n+1, 3) uint8.
+    Index 0 is always black (in-set sentinel)."""
+    arr = np.zeros((n + 1, 3), dtype=np.uint8)
+    m = len(stops) - 1
+    for i in range(n):
+        t = i / max(n - 1, 1)
+        seg = min(int(t * m), m - 1)
+        local_t = t * m - seg
+        lo = stops[seg]
+        hi = stops[seg + 1]
+        arr[i + 1] = (
+            int(lo[0] + (hi[0] - lo[0]) * local_t),
+            int(lo[1] + (hi[1] - lo[1]) * local_t),
+            int(lo[2] + (hi[2] - lo[2]) * local_t),
+        )
+    return arr
+
+
+def _fire_palette(n: int) -> np.ndarray:
+    return _gradient_palette(n, [(0, 0, 0), (128, 0, 0), (255, 64, 0), (255, 200, 0), (255, 255, 180)])
+
+
+def _ocean_palette(n: int) -> np.ndarray:
+    return _gradient_palette(n, [(0, 0, 30), (0, 40, 120), (0, 120, 200), (0, 220, 255), (200, 255, 255)])
+
+
+def _neon_palette(n: int) -> np.ndarray:
+    return _gradient_palette(n, [(10, 0, 30), (120, 0, 200), (0, 200, 255), (255, 50, 150), (255, 220, 0)])
+
+
+def _cosmic_palette(n: int) -> np.ndarray:
+    return _gradient_palette(n, [(5, 0, 20), (60, 0, 100), (150, 50, 180), (255, 180, 100), (255, 255, 220)])
+
+
+def _ice_palette(n: int) -> np.ndarray:
+    return _gradient_palette(n, [(0, 0, 40), (30, 80, 160), (100, 180, 255), (200, 230, 255), (240, 250, 255)])
+
+
+PALETTE_NAMES: list[str] = ['hsv', 'fire', 'ocean', 'neon', 'cosmic', 'ice']
+
+_PALETTE_BUILDERS: dict[str, object] = {
+    'hsv':    lambda n, off: hsv_palette(n, hue_offset=off),
+    'fire':   lambda n, _: _fire_palette(n),
+    'ocean':  lambda n, _: _ocean_palette(n),
+    'neon':   lambda n, _: _neon_palette(n),
+    'cosmic': lambda n, _: _cosmic_palette(n),
+    'ice':    lambda n, _: _ice_palette(n),
+}
+
+
 def lerp(a: float, b: float, t: float) -> float:
     return a + (b - a) * t
 
@@ -178,6 +229,7 @@ class EscapeTimeFractal(FractalPage):
     x_range = (-2.5, 1.0)
     y_range = (-1.25, 1.25)
     palette_offset = 0.0
+    palette_name: str = 'hsv'
     smooth_colouring: bool = True
     hue_cycle_speed: int = 0    # frames per index step; 0 = disabled, e.g. 4 = shift every 4 frames
 
@@ -188,7 +240,8 @@ class EscapeTimeFractal(FractalPage):
         self.surface = pygame.Surface((self.w, self.h))
         self.surface.fill(BG)
         self.row = 0
-        self.palette = hsv_palette(self.max_iter, hue_offset=self.palette_offset)
+        builder = _PALETTE_BUILDERS.get(self.palette_name, _PALETTE_BUILDERS['hsv'])
+        self.palette = builder(self.max_iter, self.palette_offset)
         self.palette_f = self.palette.astype(np.float64)
         self._hue_shift: int = 0
 
@@ -273,6 +326,14 @@ class EscapeTimeFractal(FractalPage):
         y1 = min(self.h, self.row + self.rows_per_frame)
         self.render_rows(self.row, y1)
         self.row = y1
+
+    def cycle_palette(self) -> None:
+        idx = (PALETTE_NAMES.index(self.palette_name) + 1) % len(PALETTE_NAMES)
+        self.palette_name = PALETTE_NAMES[idx]
+        builder = _PALETTE_BUILDERS[self.palette_name]
+        self.palette = builder(self.max_iter, self.palette_offset)
+        self.palette_f = self.palette.astype(np.float64)
+        self.row = 0
 
     def draw(self, screen: pygame.Surface) -> None:
         screen.blit(self.surface, (0, 0))
@@ -1778,7 +1839,7 @@ class FractalExplorer:
         self.screen.blit(arrow_r, (self.w - 40 - arrow_r.get_width(),
                                    nav_y + (NAV_H - arrow_r.get_height()) // 2))
         # keys hint
-        hint = self.font_xs.render("← →  Tab  1-5  R  F  C  J  Esc", True, DIM)
+        hint = self.font_xs.render("← →  Tab  1-5  R  F  P  C  J  Esc", True, DIM)
         self.screen.blit(hint, ((self.w - hint.get_width()) // 2, nav_y + NAV_H - 12))
 
     def draw(self):
@@ -1813,6 +1874,10 @@ class FractalExplorer:
                 self.toggle_fullscreen()
             elif k == pygame.K_c:
                 self._cinematic = not self._cinematic
+            elif k == pygame.K_p:
+                page = self.current
+                if isinstance(page, EscapeTimeFractal):
+                    page.cycle_palette()
             elif k == pygame.K_j:
                 page = self.current
                 if isinstance(page, JuliaFractal):
