@@ -1784,8 +1784,8 @@ class FractalExplorer:
                 if body_mouse_y < 0 or mouse_y >= self.h - NAV_H:
                     return
                 body_w, body_h = self.w, self.body_h
-                x0, x1 = page.x_range
-                y0, y1 = page.y_range
+                x0, x1 = self._zoom_target_x if self._zoom_target_x is not None else page.x_range
+                y0, y1 = self._zoom_target_y if self._zoom_target_y is not None else page.y_range
                 factor = 0.85 ** e.y
                 cx = x0 + (mouse_x / body_w) * (x1 - x0)
                 cy = y0 + (body_mouse_y / body_h) * (y1 - y0)

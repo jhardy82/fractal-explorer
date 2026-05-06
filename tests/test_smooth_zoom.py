@@ -1,6 +1,8 @@
 """test_smooth_zoom.py — T3 smooth eased zoom unit tests."""
 import pygame
 
+from fractal_explorer_v2 import TITLE_H
+
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def _lerp(a: float, b: float, alpha: float = 0.25) -> float:
@@ -53,7 +55,7 @@ class TestTickZoom:
         ev = pygame.event.Event(
             pygame.MOUSEBUTTONDOWN,
             button=1,
-            pos=(explorer.w // 2, 50),
+            pos=(explorer.w // 2, TITLE_H + 10),
         )
         explorer.handle_event(ev)
         assert explorer._zoom_target_x is None
