@@ -186,6 +186,7 @@ class FractalPage:
     name = "Page"
     category = "B"
     info = ""
+    formula: str = ""     # mathematical formula; shown by M-key overlay
     PARAM_DEFAULTS: dict = {}
     param_step: float = 0.01
     scroll_step: float = 0.01
@@ -416,6 +417,7 @@ class JuliaFractal(EscapeTimeFractal):
     param_step: float = 0.01
     scroll_step: float = 0.01
     PARAM_DEFAULTS: dict = {"c_const": complex(-0.79, 0.15)}
+    formula = "zₙ₊₁ = zₙ² + c  (c fixed)"
     flight_speed: float = 0.0    # radians per frame; 0 = static
     flight_radius: float = 0.75  # orbit radius in complex plane
 
@@ -457,6 +459,7 @@ class JuliaFractal(EscapeTimeFractal):
 class Mandelbrot(EscapeTimeFractal):
     name = "Mandelbrot Set"
     info = "z ↦ z² + c · canonical complex escape-time set"
+    formula = "zₙ₊₁ = zₙ² + c"
     palette_offset = 0.62
 
 
@@ -479,6 +482,7 @@ class Julia2(JuliaFractal):
 class BurningShip(EscapeTimeFractal):
     name = "Burning Ship"
     info = "z ↦ (|Re z| + i|Im z|)² + c · Michelitsch & Rössler 1992"
+    formula = "zₙ₊₁ = (|Re z| + i·|Im z|)² + c"
     x_range = (-2.0, 1.5)
     y_range = (-2.0, 1.0)
     palette_offset = 0.10
@@ -490,6 +494,7 @@ class BurningShip(EscapeTimeFractal):
 class Tricorn(EscapeTimeFractal):
     name = "Tricorn (Mandelbar)"
     info = "z ↦ z̄² + c · anti-holomorphic"
+    formula = "zₙ₊₁ = conj(z)² + c"
     x_range = (-2.0, 2.0)
     y_range = (-1.5, 1.5)
     palette_offset = 0.30
@@ -501,6 +506,7 @@ class Tricorn(EscapeTimeFractal):
 class Multibrot3(EscapeTimeFractal):
     name = "Multibrot d=3"
     info = "z ↦ z³ + c · 2-fold symmetry"
+    formula = "zₙ₊₁ = zₙ³ + c"
     x_range = (-1.5, 1.5)
     y_range = (-1.2, 1.2)
     palette_offset = 0.50
@@ -512,6 +518,7 @@ class Multibrot3(EscapeTimeFractal):
 class Multibrot4(EscapeTimeFractal):
     name = "Multibrot d=4"
     info = "z ↦ z⁴ + c · 3-fold symmetry"
+    formula = "zₙ₊₁ = zₙ⁴ + c"
     x_range = (-1.4, 1.4)
     y_range = (-1.1, 1.1)
     palette_offset = 0.42
@@ -524,6 +531,7 @@ class NewtonFractal(EscapeTimeFractal):
     """Newton's method on z³ - 1 = 0. Coloured by which root each point converges to."""
     name = "Newton z³ - 1"
     info = "Newton iteration on z³−1=0 · root-basin colouring"
+    formula = "Newton: f(z) = z³ − 1 = 0"
     x_range = (-2.0, 2.0)
     y_range = (-1.5, 1.5)
     max_iter = 32
@@ -1820,6 +1828,7 @@ class FractalExplorer:
         self._zoom_target_y: tuple[float, float] | None = None
         self._zoom_lowres: bool = False
         self._cinematic: bool = False
+        self._show_info: bool = False
         self._bookmarks: list[tuple[int, int, tuple[float, float], tuple[float, float]]] = []
         self._bookmark_idx: int = -1  # sentinel: -1 means "before first entry"
 
@@ -1919,13 +1928,33 @@ class FractalExplorer:
         self.screen.blit(arrow_r, (self.w - 40 - arrow_r.get_width(),
                                    nav_y + (NAV_H - arrow_r.get_height()) // 2))
         # keys hint
-        hint = self.font_xs.render("← →  Tab  1-5  R  F  P  O  I  C  J  S  B  N  Esc", True, DIM)
+        hint = self.font_xs.render("← →  Tab  1-5  R  F  P  O  I  C  J  S  B  N  M  Esc", True, DIM)
         self.screen.blit(hint, ((self.w - hint.get_width()) // 2, nav_y + NAV_H - 12))
 
         # coordinate display for escape-time pages
         if isinstance(self.current, EscapeTimeFractal):
             coord_surf = self.font_xs.render(self._format_coord(self.current), True, DIM)
             self.screen.blit(coord_surf, (8, self.h - NAV_H - 16))
+
+        # math info overlay
+        if self._show_info:
+            page = self.current
+            lines = []
+            if page.formula:
+                lines.append(page.formula)
+            if page.info:
+                lines.append(page.info)
+            if lines:
+                pad = 8
+                line_h = self.font_xs.get_linesize()
+                overlay_w = max(self.font_xs.size(ln)[0] for ln in lines) + pad * 2
+                overlay_h = len(lines) * line_h + pad * 2
+                overlay = pygame.Surface((overlay_w, overlay_h), pygame.SRCALPHA)
+                overlay.fill((8, 11, 20, 210))
+                for i, ln in enumerate(lines):
+                    txt = self.font_xs.render(ln, True, FG)
+                    overlay.blit(txt, (pad, pad + i * line_h))
+                self.screen.blit(overlay, (8, TITLE_H + 8))
 
     def draw(self):
         self.screen.fill(BG)
@@ -2018,6 +2047,8 @@ class FractalExplorer:
                         target.x_range = xr
                         target.y_range = yr
                         target.row = 0
+            elif k == pygame.K_m:
+                self._show_info = not self._show_info
             elif pygame.K_1 <= k <= pygame.K_5:
                 self.jump_category(k - pygame.K_1)
         elif e.type == pygame.MOUSEWHEEL:
