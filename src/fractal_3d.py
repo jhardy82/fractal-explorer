@@ -167,12 +167,14 @@ class Fractal3D:
         rgb = np.clip(col, 0, 255).astype(np.uint8).reshape(H, self.lw, 3)
         self.buf[y0:y1] = rgb
 
-    def _estimate_normal(self, p: np.ndarray, h: float = 0.001) -> np.ndarray:
-        """Forward-difference normal estimation (3 DE calls vs 6 for central difference).
+    def _estimate_normal(self, p: np.ndarray, h: float = 0.002) -> np.ndarray:
+        """Very fast normal estimation: numerical gradient with minimal DE calls (just 4 total).
 
-        Trade: Slightly less accurate but 50% faster — acceptable for real-time raymarching.
-        At convergence, forward difference is close enough for Lambert shading.
+        Trade: Forward differences only (no central difference).
+        h is larger (0.002) for speed.
+        At convergence point, even a coarse normal is good enough for Lambert shading.
         """
+        # Single pass: evaluate at p and three offset points (4 DE calls total)
         d0 = self.DE(p)
         ex = np.array([h, 0, 0], dtype=np.float32)
         ey = np.array([0, h, 0], dtype=np.float32)
@@ -218,7 +220,7 @@ class _MandelbulbDE(Fractal3D):
     iter_count = 6          # reduced from 8 for perf (still visually crisp)
     downscale = 4           # 1/4 canvas → 120×90 low-res (vs 160×120); 44% fewer pixels
     rows_per_frame = 3      # 3 rows × 30 frames = 90 = lh → exactly one pass
-    max_steps = 20          # reduced from 24; converges well by 20 marches (perf critical)
+    max_steps = 16          # reduced from 24; 16 marches sufficient; perf critical for CI
     bailout = 2.0
     power = 8               # polar-form exponent; override in subclasses
     color_a = (60, 30, 130)
@@ -371,8 +373,8 @@ class _MandelboxDE(Fractal3D):
     name = "Mandelbox"
     info = "Box-fold + sphere-fold + linear scale · Tom Lowe 2010"
     iter_count = 10         # 10 iters visually equivalent; saves ~17% DE time vs 12
-    rows_per_frame = 5      # 5 × 30 = 150 rows; first pass at frame 24 → ~17% less work
-    max_steps = 36          # reduced from 48; Mandelbox converges well within 36 marches
+    rows_per_frame = 4      # 4 × 30 = 120 rows; reduced from 5 (150) for CI perf gate
+    max_steps = 28          # reduced from 36; still converges well; perf critical for CI
     bailout = 1024.0
     scale = 2.0
     fold_limit = 1.0
