@@ -123,6 +123,24 @@ def _gradient_palette(n: int, stops: list[tuple[int, int, int]]) -> np.ndarray:
     return arr
 
 
+def _screen_to_complex(
+    mx: int,
+    my: int,
+    x_range: tuple[float, float],
+    y_range: tuple[float, float],
+    w: int,
+    body_h: int,
+    body_y_offset: int,
+) -> complex:
+    """Map screen pixel (mx, my) to the complex number at that position."""
+    if w <= 0 or body_h <= 0:
+        return complex(x_range[0], y_range[0])
+    body_y = max(0, min(my - body_y_offset, body_h - 1))
+    re = x_range[0] + (mx / w) * (x_range[1] - x_range[0])
+    im = y_range[0] + (body_y / body_h) * (y_range[1] - y_range[0])
+    return complex(re, im)
+
+
 def _fire_palette(n: int) -> np.ndarray:
     return _gradient_palette(n, [(0, 0, 0), (128, 0, 0), (255, 64, 0), (255, 200, 0), (255, 255, 180)])
 
@@ -1845,6 +1863,12 @@ class FractalExplorer:
         self._zoom_lowres = False
         self.current.reset()
 
+    def _format_coord(self, page: EscapeTimeFractal) -> str:
+        mx, my = pygame.mouse.get_pos()
+        z = _screen_to_complex(mx, my, page.x_range, page.y_range, self.w, self.body_h, TITLE_H)
+        sign = "+" if z.imag >= 0 else "-"
+        return f"{z.real:+.6f} {sign} {abs(z.imag):.6f}i"
+
     def toggle_fullscreen(self):
         self.fullscreen = not self.fullscreen
         flags = pygame.FULLSCREEN if self.fullscreen else 0
@@ -1892,6 +1916,11 @@ class FractalExplorer:
         # keys hint
         hint = self.font_xs.render("← →  Tab  1-5  R  F  P  O  I  C  J  S  Esc", True, DIM)
         self.screen.blit(hint, ((self.w - hint.get_width()) // 2, nav_y + NAV_H - 12))
+
+        # coordinate display for escape-time pages
+        if isinstance(self.current, EscapeTimeFractal):
+            coord_surf = self.font_xs.render(self._format_coord(self.current), True, DIM)
+            self.screen.blit(coord_surf, (8, self.h - NAV_H - 16))
 
     def draw(self):
         self.screen.fill(BG)
