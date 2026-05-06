@@ -1960,7 +1960,7 @@ class FractalExplorer:
         self.screen.blit(arrow_r, (self.w - 40 - arrow_r.get_width(),
                                    nav_y + (NAV_H - arrow_r.get_height()) // 2))
         # keys hint
-        hint = self.font_xs.render("← →  Tab  1-5  R  F  P  O  I  C  J  S  B  N  M  Esc", True, DIM)
+        hint = self.font_xs.render("← →  Tab  1-5  R  F  P  O  I  C  J  S  B  N  M  G  K  Esc", True, DIM)
         self.screen.blit(hint, ((self.w - hint.get_width()) // 2, nav_y + NAV_H - 12))
 
         # coordinate display for escape-time pages
@@ -2290,7 +2290,7 @@ class FractalExplorer:
                 return
             ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             path = pathlib.Path(f"fractal_{ts}.gif")
-            imageio.mimwrite(str(path), frames, fps=GIF_FPS, loop=0)
+            imageio.mimwrite(str(path), frames, duration=int(1000 / GIF_FPS), loop=0)
             self._gif_notice = GIF_NOTICE_FRAMES
             self._last_gif_path = path.name
         except Exception as e:

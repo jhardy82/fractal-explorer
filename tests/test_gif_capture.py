@@ -225,6 +225,8 @@ class TestExportGif:
             created_paths: list[str] = []
 
             def fake_mimwrite(path, frames, **kwargs):
+                # Expect duration=66 (ms) instead of fps=15
+                assert "duration" in kwargs or "fps" not in kwargs, f"Expected duration kwarg, got {kwargs}"
                 Path(path).write_bytes(b"GIF89a")
                 created_paths.append(path)
 
