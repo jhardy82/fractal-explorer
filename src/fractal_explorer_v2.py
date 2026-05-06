@@ -1831,6 +1831,7 @@ class FractalExplorer:
         self._show_info: bool = False
         self._bookmarks: list[tuple[int, int, tuple[float, float], tuple[float, float]]] = []
         self._bookmark_idx: int = -1  # sentinel: -1 means "before first entry"
+        self._julia_seed_px: tuple[int, int] | None = None
 
         self.current.ensure_init()
 
@@ -1851,27 +1852,32 @@ class FractalExplorer:
     def go_prev(self):
         cat_pages = self.pages[self.current_cat]
         self.page_idx = (self.page_idx - 1) % len(cat_pages)
+        self._julia_seed_px = None
         self.current.ensure_init()
 
     def go_next(self):
         cat_pages = self.pages[self.current_cat]
         self.page_idx = (self.page_idx + 1) % len(cat_pages)
+        self._julia_seed_px = None
         self.current.ensure_init()
 
     def jump_category(self, idx: int):
         if 0 <= idx < len(CATEGORIES):
             self.cat_idx = idx
             self.page_idx = 0
+            self._julia_seed_px = None
             self.current.ensure_init()
 
     def next_category(self):
         self.cat_idx = (self.cat_idx + 1) % len(CATEGORIES)
         self.page_idx = 0
+        self._julia_seed_px = None
         self.current.ensure_init()
 
     def reset_current(self):
         self._zoom_target_x = self._zoom_target_y = None
         self._zoom_lowres = False
+        self._julia_seed_px = None
         self.current.reset()
 
     def _format_coord(self, page: EscapeTimeFractal) -> str:
@@ -1933,8 +1939,25 @@ class FractalExplorer:
 
         # coordinate display for escape-time pages
         if isinstance(self.current, EscapeTimeFractal):
-            coord_surf = self.font_xs.render(self._format_coord(self.current), True, DIM)
+            coord_text = self._format_coord(self.current)
+            # Append Julia seed info if on Mandelbrot with a recorded seed
+            if isinstance(self.current, Mandelbrot) and self._julia_seed_px is not None:
+                mx_seed, my_seed = self._julia_seed_px
+                # Compute complex coords from seed pixel
+                body_y_seed = max(0, min(my_seed - TITLE_H, self.body_h - 1))
+                cx_seed = self.current.x_range[0] + (mx_seed / self.w) * (self.current.x_range[1] - self.current.x_range[0])
+                cy_seed = self.current.y_range[0] + (body_y_seed / self.body_h) * (self.current.y_range[1] - self.current.y_range[0])
+                coord_text += f" → Julia c={cx_seed:+.4f}{cy_seed:+.4f}i"
+            coord_surf = self.font_xs.render(coord_text, True, DIM)
             self.screen.blit(coord_surf, (8, self.h - NAV_H - 16))
+
+            # Draw marker circle if seed is set on Mandelbrot
+            if isinstance(self.current, Mandelbrot) and self._julia_seed_px is not None:
+                mx_seed, my_seed = self._julia_seed_px
+                # Draw filled circle (red) at seed position
+                pygame.draw.circle(self.screen, (255, 68, 68), (int(mx_seed), int(my_seed)), 5)
+                # Draw outline circle (white) around seed position
+                pygame.draw.circle(self.screen, (255, 255, 255), (int(mx_seed), int(my_seed)), 7, 2)
 
         # math info overlay
         if self._show_info:
@@ -2019,6 +2042,8 @@ class FractalExplorer:
                     body_y = max(0, min(my - TITLE_H, self.body_h - 1))
                     cx = page.x_range[0] + (mx / self.w) * (page.x_range[1] - page.x_range[0])
                     cy = page.y_range[0] + (body_y / self.body_h) * (page.y_range[1] - page.y_range[0])
+                    # Record the seed pixel (screen coordinates)
+                    self._julia_seed_px = (mx, body_y + TITLE_H)
                     julia_pages = self.pages.get('A', [])
                     for ji, jp in enumerate(julia_pages):
                         if isinstance(jp, JuliaFractal):
