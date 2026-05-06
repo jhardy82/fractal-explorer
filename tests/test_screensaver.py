@@ -146,3 +146,53 @@ class TestKioskMode:
         )
         assert escape_animated, "At least one EscapeTimeFractal must have hue_cycle_speed > 0"
         assert julia_animated, "At least one JuliaFractal must have flight_speed > 0"
+
+    def test_mousewheel_exits_kiosk(self, engine):
+        """MOUSEWHEEL event while kiosk active → _kiosk = False."""
+        explorer = _make_explorer(engine)
+        explorer.handle_event(_k_event())   # enable kiosk
+        assert explorer._kiosk is True
+        wheel_event = pygame.event.Event(pygame.MOUSEWHEEL, x=0, y=-1)
+        explorer.handle_event(wheel_event)
+        assert explorer._kiosk is False
+
+    def test_cinematic_state_preserved_on_kiosk_exit(self, engine):
+        """Pre-kiosk cinematic=True is restored after kiosk exits."""
+        explorer = _make_explorer(engine)
+        explorer._cinematic = True           # user had cinematic on before kiosk
+        explorer.handle_event(_k_event())    # enter kiosk (cinematic captured as True)
+        assert explorer._kiosk is True
+        assert explorer._cinematic is True   # still True inside kiosk
+        explorer.handle_event(_other_key_event())  # exit kiosk
+        assert explorer._kiosk is False
+        assert explorer._cinematic is True   # restored to pre-kiosk value
+
+    def test_animations_not_restored_on_kiosk_exit(self, engine):
+        """Animation speeds (hue_cycle_speed, flight_speed) are NOT restored on kiosk exit.
+
+        Design decision — "permanent wake-up" semantic: entering kiosk wakes dormant pages;
+        exiting kiosk keeps them alive. Animation state is intentionally one-way.
+        """
+        explorer = _make_explorer(engine)
+        # Zero out all animations first
+        for pages in explorer.pages.values():
+            for page in pages:
+                if hasattr(page, 'hue_cycle_speed'):
+                    page.hue_cycle_speed = 0
+                if hasattr(page, 'flight_speed'):
+                    page.flight_speed = 0.0
+
+        explorer.handle_event(_k_event())          # enter kiosk — wakes animations
+        explorer.handle_event(_other_key_event())  # exit kiosk
+
+        # Animations must still be active after exit (permanent wake-up is intentional)
+        escape_animated = any(
+            page.hue_cycle_speed > 0
+            for pages in explorer.pages.values()
+            for page in pages
+            if isinstance(page, engine.EscapeTimeFractal)
+        )
+        assert escape_animated, (
+            "hue_cycle_speed must remain > 0 after kiosk exit — "
+            "permanent wake-up is an intentional design choice, not a bug"
+        )

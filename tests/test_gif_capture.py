@@ -87,6 +87,14 @@ def explorer(engine):
     if not hasattr(exp, "_last_gif_path"):
         exp._last_gif_path = ""
 
+    # Kiosk state — required since direct attribute access replaced getattr fallbacks
+    if not hasattr(exp, "_kiosk"):
+        exp._kiosk = False
+    if not hasattr(exp, "_kiosk_timer"):
+        exp._kiosk_timer = 0
+    if not hasattr(exp, "_cinematic_before_kiosk"):
+        exp._cinematic_before_kiosk = False
+
     # Minimal pages dict so handle_event doesn't error on category navigation
     exp._instantiate_pages()
     exp.current.ensure_init()

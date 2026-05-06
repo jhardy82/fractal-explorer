@@ -1850,6 +1850,7 @@ class FractalExplorer:
         # Kiosk / screensaver state
         self._kiosk: bool = False
         self._kiosk_timer: int = 0
+        self._cinematic_before_kiosk: bool = False
 
         self.current.ensure_init()
 
@@ -2028,9 +2029,9 @@ class FractalExplorer:
             # K key is excluded: let the K block below handle the toggle normally
             # (pressing K while in kiosk: the any-key block skips, K block sees
             # _kiosk=True and disables it — net effect is kiosk off).
-            if getattr(self, '_kiosk', False) and k != pygame.K_k:
+            if self._kiosk and k != pygame.K_k:
+                self._cinematic = self._cinematic_before_kiosk
                 self._kiosk = False
-                self._cinematic = False
                 return
             if k == pygame.K_ESCAPE:
                 self.running = False
@@ -2118,7 +2119,8 @@ class FractalExplorer:
                     self._recording = False
                     threading.Thread(target=self._export_gif, daemon=True).start()
             elif k == pygame.K_k:
-                if not getattr(self, '_kiosk', False):
+                if not self._kiosk:
+                    self._cinematic_before_kiosk = self._cinematic
                     self._kiosk = True
                     self._cinematic = True
                     self._kiosk_timer = 0
@@ -2130,11 +2132,15 @@ class FractalExplorer:
                             if hasattr(_kp, 'flight_speed') and _kp.flight_speed == 0:
                                 _kp.flight_speed = 0.02
                 else:
+                    self._cinematic = self._cinematic_before_kiosk
                     self._kiosk = False
-                    self._cinematic = False
             elif pygame.K_1 <= k <= pygame.K_5:
                 self.jump_category(k - pygame.K_1)
         elif e.type == pygame.MOUSEWHEEL:
+            if self._kiosk:
+                self._cinematic = self._cinematic_before_kiosk
+                self._kiosk = False
+                return
             page = self.current
             if isinstance(page, EscapeTimeFractal):
                 mouse_x, mouse_y = pygame.mouse.get_pos()
@@ -2162,9 +2168,9 @@ class FractalExplorer:
                     page.surface.fill(BG)
         elif e.type == pygame.MOUSEBUTTONDOWN:
             # Any-click exits kiosk mode
-            if getattr(self, '_kiosk', False):
+            if self._kiosk:
+                self._cinematic = self._cinematic_before_kiosk
                 self._kiosk = False
-                self._cinematic = False
                 return
             if e.button == 1:
                 page = self.current
@@ -2251,8 +2257,8 @@ class FractalExplorer:
             self._gif_notice -= 1
 
         # Kiosk / screensaver per-frame update
-        if getattr(self, '_kiosk', False):
-            self._kiosk_timer = getattr(self, '_kiosk_timer', 0) + 1
+        if self._kiosk:
+            self._kiosk_timer += 1
             if self._kiosk_timer >= KIOSK_ADVANCE_FRAMES:
                 self._kiosk_timer = 0
                 self.go_next()
