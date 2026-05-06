@@ -1820,6 +1820,8 @@ class FractalExplorer:
         self._zoom_target_y: tuple[float, float] | None = None
         self._zoom_lowres: bool = False
         self._cinematic: bool = False
+        self._bookmarks: list[tuple[int, int, tuple[float, float], tuple[float, float]]] = []
+        self._bookmark_idx: int = -1  # sentinel: -1 means "before first entry"
 
         self.current.ensure_init()
 
@@ -1887,6 +1889,9 @@ class FractalExplorer:
         # info on right
         info_surface = self.font_xs.render(page.info, True, DIMMER)
         self.screen.blit(info_surface, (self.w - info_surface.get_width() - 12, 10))
+        if self._bookmarks:
+            bm_txt = self.font_xs.render(f"[{len(self._bookmarks)} bookmarks]", True, DIM)
+            self.screen.blit(bm_txt, (self.w // 2 - bm_txt.get_width() // 2, 10))
 
         # nav bar (bottom)
         nav_y = self.h - NAV_H
@@ -1914,7 +1919,7 @@ class FractalExplorer:
         self.screen.blit(arrow_r, (self.w - 40 - arrow_r.get_width(),
                                    nav_y + (NAV_H - arrow_r.get_height()) // 2))
         # keys hint
-        hint = self.font_xs.render("← →  Tab  1-5  R  F  P  O  I  C  J  S  Esc", True, DIM)
+        hint = self.font_xs.render("← →  Tab  1-5  R  F  P  O  I  C  J  S  B  N  Esc", True, DIM)
         self.screen.blit(hint, ((self.w - hint.get_width()) // 2, nav_y + NAV_H - 12))
 
         # coordinate display for escape-time pages
@@ -1993,6 +1998,26 @@ class FractalExplorer:
                             self.cat_idx = CAT_KEYS.index('A')
                             self.page_idx = ji
                             break
+            elif k == pygame.K_b:
+                page = self.current
+                if isinstance(page, EscapeTimeFractal):
+                    entry = (self.cat_idx, self.page_idx, page.x_range, page.y_range)
+                    self._bookmarks.append(entry)
+                    if len(self._bookmarks) > 10:
+                        self._bookmarks.pop(0)  # O(n) acceptable at cap=10
+                    self._bookmark_idx = len(self._bookmarks) - 1
+            elif k == pygame.K_n:
+                if self._bookmarks:
+                    self._bookmark_idx = (self._bookmark_idx + 1) % len(self._bookmarks)
+                    ci, pi, xr, yr = self._bookmarks[self._bookmark_idx]
+                    target = self.pages[CAT_KEYS[ci]][pi]
+                    if isinstance(target, EscapeTimeFractal):
+                        self.cat_idx = ci
+                        self.page_idx = pi
+                        self.current.ensure_init()
+                        target.x_range = xr
+                        target.y_range = yr
+                        target.row = 0
             elif pygame.K_1 <= k <= pygame.K_5:
                 self.jump_category(k - pygame.K_1)
         elif e.type == pygame.MOUSEWHEEL:
