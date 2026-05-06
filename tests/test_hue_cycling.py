@@ -56,6 +56,38 @@ class TestHueCyclingEnabled:
             "Expected different colours for shift=0 vs shift=10"
         )
 
+    def test_integer_path_shifts_escaped_only(self, engine):
+        """Integer path (smooth_colouring=False): shift=0 vs shift=10 differ; in-set stays black."""
+        Mandelbrot = engine.Mandelbrot
+
+        # Outside the set — all pixels escape, shift must change colours.
+        page0 = _make_page(Mandelbrot, smooth_colouring=False,
+                           x_range=(1.5, 2.5), y_range=(-0.5, 0.5))
+        page0.render_rows(0, _H)
+        rgb0 = pygame.surfarray.array3d(page0.surface).transpose(1, 0, 2)
+
+        page10 = _make_page(Mandelbrot, smooth_colouring=False,
+                            x_range=(1.5, 2.5), y_range=(-0.5, 0.5))
+        page10._hue_shift = 10
+        page10.render_rows(0, _H)
+        rgb10 = pygame.surfarray.array3d(page10.surface).transpose(1, 0, 2)
+
+        assert not np.array_equal(rgb0, rgb10), "Integer path: shift must change escaped pixel colours"
+
+        # Inside the set — all pixels are in-set, shift must NOT change colours.
+        page_in0 = _make_page(Mandelbrot, smooth_colouring=False,
+                              x_range=(-0.01, 0.01), y_range=(-0.01, 0.01))
+        page_in0.render_rows(0, _H)
+        rgb_in0 = pygame.surfarray.array3d(page_in0.surface).transpose(1, 0, 2)
+
+        page_in10 = _make_page(Mandelbrot, smooth_colouring=False,
+                               x_range=(-0.01, 0.01), y_range=(-0.01, 0.01))
+        page_in10._hue_shift = 10
+        page_in10.render_rows(0, _H)
+        rgb_in10 = pygame.surfarray.array3d(page_in10.surface).transpose(1, 0, 2)
+
+        assert np.array_equal(rgb_in0, rgb_in10), "Integer path: in-set pixels must be unaffected by shift"
+
     def test_reset_clears_shift(self, engine):
         page = _make_page(engine.Mandelbrot, hue_cycle_speed=2)
         page._hue_shift = 15

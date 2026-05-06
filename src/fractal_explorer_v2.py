@@ -247,8 +247,10 @@ class EscapeTimeFractal(FractalPage):
             ).astype(np.uint8)
         else:
             # Opt-out path: integer palette lookup with optional hue shift.
+            # In-set pixels (div == 0 / escaped == False) always map to palette[0] (black).
             shift = self._hue_shift
-            rgb = self.palette[(div + shift) % (self.max_iter + 1)]
+            shifted_div = np.where(escaped, (div + shift) % (self.max_iter + 1), 0)
+            rgb = self.palette[shifted_div]
 
         rgb_t = rgb.transpose(1, 0, 2)                      # (w, rows, 3) for pygame
         sub = pygame.surfarray.make_surface(rgb_t)
