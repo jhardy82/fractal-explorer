@@ -96,6 +96,7 @@ PHI = (1 + math.sqrt(5)) / 2
 GIF_MAX_FRAMES = 300    # 20 seconds at 15 fps
 GIF_FPS = 15
 GIF_NOTICE_FRAMES = 90  # show "GIF saved" notice for 1.5 seconds at 60 fps
+KIOSK_ADVANCE_FRAMES = 900  # 30 seconds at 30 fps
 
 # ──────────────────────────────────────────────────────────────────────────────
 # PALETTE HELPERS
@@ -1846,6 +1847,10 @@ class FractalExplorer:
         self._gif_notice: int = 0         # countdown frames for "GIF saved" notice
         self._last_gif_path: str = ""
 
+        # Kiosk / screensaver state
+        self._kiosk: bool = False
+        self._kiosk_timer: int = 0
+
         self.current.ensure_init()
 
     def _instantiate_pages(self):
@@ -2019,6 +2024,14 @@ class FractalExplorer:
             self.running = False
         elif e.type == pygame.KEYDOWN:
             k = e.key
+            # Any-key kiosk exit — fires before specific key routing.
+            # K key is excluded: let the K block below handle the toggle normally
+            # (pressing K while in kiosk: the any-key block skips, K block sees
+            # _kiosk=True and disables it — net effect is kiosk off).
+            if getattr(self, '_kiosk', False) and k != pygame.K_k:
+                self._kiosk = False
+                self._cinematic = False
+                return
             if k == pygame.K_ESCAPE:
                 self.running = False
             elif k == pygame.K_LEFT:
@@ -2104,6 +2117,21 @@ class FractalExplorer:
                 else:
                     self._recording = False
                     threading.Thread(target=self._export_gif, daemon=True).start()
+            elif k == pygame.K_k:
+                if not getattr(self, '_kiosk', False):
+                    self._kiosk = True
+                    self._cinematic = True
+                    self._kiosk_timer = 0
+                    # Enable animations on all pages that support them
+                    for _cat_pages in self.pages.values():
+                        for _kp in _cat_pages:
+                            if hasattr(_kp, 'hue_cycle_speed') and _kp.hue_cycle_speed == 0:
+                                _kp.hue_cycle_speed = 4
+                            if hasattr(_kp, 'flight_speed') and _kp.flight_speed == 0:
+                                _kp.flight_speed = 0.02
+                else:
+                    self._kiosk = False
+                    self._cinematic = False
             elif pygame.K_1 <= k <= pygame.K_5:
                 self.jump_category(k - pygame.K_1)
         elif e.type == pygame.MOUSEWHEEL:
@@ -2132,26 +2160,32 @@ class FractalExplorer:
                     page._rh = max(1, page.h // 4)
                     page.surface = pygame.Surface((page._rw, page._rh))
                     page.surface.fill(BG)
-        elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
-            page = self.current
-            if isinstance(page, EscapeTimeFractal):
-                mouse_x, mouse_y = e.pos
-                if TITLE_H <= mouse_y < self.h - NAV_H:
-                    self._zoom_target_x = self._zoom_target_y = None
-                    if self._zoom_lowres:
-                        self._zoom_lowres = False
-                        p = self.current
-                        if isinstance(p, EscapeTimeFractal):
-                            p._rw = p.w
-                            p._rh = p.h
-                            p.surface = pygame.Surface((p._rw, p._rh))
-                            p.surface.fill(BG)
-                            p.row = 0
-                    self._pan_active = True
-                    self._pan_x0 = mouse_x
-                    self._pan_y0 = mouse_y
-                    self._pan_x_range = page.x_range
-                    self._pan_y_range = page.y_range
+        elif e.type == pygame.MOUSEBUTTONDOWN:
+            # Any-click exits kiosk mode
+            if getattr(self, '_kiosk', False):
+                self._kiosk = False
+                self._cinematic = False
+                return
+            if e.button == 1:
+                page = self.current
+                if isinstance(page, EscapeTimeFractal):
+                    mouse_x, mouse_y = e.pos
+                    if TITLE_H <= mouse_y < self.h - NAV_H:
+                        self._zoom_target_x = self._zoom_target_y = None
+                        if self._zoom_lowres:
+                            self._zoom_lowres = False
+                            p = self.current
+                            if isinstance(p, EscapeTimeFractal):
+                                p._rw = p.w
+                                p._rh = p.h
+                                p.surface = pygame.Surface((p._rw, p._rh))
+                                p.surface.fill(BG)
+                                p.row = 0
+                        self._pan_active = True
+                        self._pan_x0 = mouse_x
+                        self._pan_y0 = mouse_y
+                        self._pan_x_range = page.x_range
+                        self._pan_y_range = page.y_range
         elif e.type == pygame.MOUSEMOTION:
             if self._pan_active:
                 page = self.current
@@ -2215,6 +2249,19 @@ class FractalExplorer:
         """Capture one frame from self.screen into _frames (call once per render tick)."""
         if self._gif_notice > 0:
             self._gif_notice -= 1
+
+        # Kiosk / screensaver per-frame update
+        if getattr(self, '_kiosk', False):
+            self._kiosk_timer = getattr(self, '_kiosk_timer', 0) + 1
+            if self._kiosk_timer >= KIOSK_ADVANCE_FRAMES:
+                self._kiosk_timer = 0
+                self.go_next()
+            # Enable animations on the current page
+            page = self.current
+            if hasattr(page, 'hue_cycle_speed') and page.hue_cycle_speed == 0:
+                page.hue_cycle_speed = 4
+            if hasattr(page, 'flight_speed') and page.flight_speed == 0:
+                page.flight_speed = 0.02
 
         if not self._recording:
             return
