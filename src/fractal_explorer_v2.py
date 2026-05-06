@@ -235,6 +235,7 @@ class EscapeTimeFractal(FractalPage):
     smooth_colouring: bool = True
     hue_cycle_speed: int = 0    # frames per index step; 0 = disabled, e.g. 4 = shift every 4 frames
     orbit_trap: str = ''  # '', 'point', 'line', 'cross', 'circle'
+    interior_colouring: bool = False  # colour in-set pixels by Lyapunov exponent
 
     def reset(self) -> None:
         self.__dict__.pop('x_range', None)
@@ -280,9 +281,13 @@ class EscapeTimeFractal(FractalPage):
         mask = np.ones(c.shape, dtype=bool)
         if self.orbit_trap:
             min_trap = np.full(c.shape, np.inf, dtype=np.float64)
+        if self.interior_colouring:
+            log_sum = np.zeros(c.shape, dtype=np.float64)
         for i in range(1, self.max_iter + 1):
             z_new = self.iter_step(z, c)
             z = np.where(mask, z_new, z)
+            if self.interior_colouring:
+                log_sum += mask * np.log(np.maximum(np.abs(z), 1e-4))
             if self.orbit_trap:
                 d = self._trap_dist(z)
                 min_trap = np.minimum(np.where(mask, d, min_trap), min_trap)
@@ -337,6 +342,17 @@ class EscapeTimeFractal(FractalPage):
                 rgb = self.palette[shifted_div]
             else:
                 rgb = self.palette[div]
+
+        if self.interior_colouring and not self.orbit_trap:
+            inset = ~escaped
+            if inset.any():
+                lyap = log_sum / max(self.max_iter, 1)
+                norm = np.tanh(np.abs(lyap) * 3.0)               # [0, 1]
+                interior_idx = np.clip(
+                    (norm * (self.max_iter // 2)).astype(np.int32) + 1,
+                    1, self.max_iter,
+                )
+                rgb = np.where(inset[..., np.newaxis], self.palette[interior_idx], rgb)
 
         rgb_t = rgb.transpose(1, 0, 2)                      # (w, rows, 3) for pygame
         sub = pygame.surfarray.make_surface(rgb_t)
@@ -1866,7 +1882,7 @@ class FractalExplorer:
         self.screen.blit(arrow_r, (self.w - 40 - arrow_r.get_width(),
                                    nav_y + (NAV_H - arrow_r.get_height()) // 2))
         # keys hint
-        hint = self.font_xs.render("← →  Tab  1-5  R  F  P  O  C  J  Esc", True, DIM)
+        hint = self.font_xs.render("← →  Tab  1-5  R  F  P  O  I  C  J  Esc", True, DIM)
         self.screen.blit(hint, ((self.w - hint.get_width()) // 2, nav_y + NAV_H - 12))
 
     def draw(self):
@@ -1910,6 +1926,11 @@ class FractalExplorer:
                 if isinstance(page, EscapeTimeFractal):
                     idx = (ORBIT_TRAPS.index(page.orbit_trap) + 1) % len(ORBIT_TRAPS)
                     page.orbit_trap = ORBIT_TRAPS[idx]
+                    page.row = 0
+            elif k == pygame.K_i:
+                page = self.current
+                if isinstance(page, EscapeTimeFractal):
+                    page.interior_colouring = not page.interior_colouring
                     page.row = 0
             elif k == pygame.K_j:
                 page = self.current
