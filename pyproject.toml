@@ -34,8 +34,13 @@ requires = ["hatchling>=1.26"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["fractal_explorer_v2.py"]
-include = ["fractal_3d.py", "fractal_newton.py", "fractal_kleinian.py", "src/"]
+packages = []
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/fractal_explorer_v2.py" = "fractal_explorer_v2.py"
+"src/fractal_3d.py" = "fractal_3d.py"
+"src/fractal_newton.py" = "fractal_newton.py"
+"src/fractal_kleinian.py" = "fractal_kleinian.py"
 
 # ── ruff ─────────────────────────────────────────────────────────────────────
 
