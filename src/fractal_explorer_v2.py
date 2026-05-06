@@ -261,9 +261,9 @@ class EscapeTimeFractal(FractalPage):
         if t == 'point':
             return np.abs(z)
         if t == 'line':
-            return np.abs(z.imag)
+            return np.abs(np.imag(z))
         if t == 'cross':
-            return np.minimum(np.abs(z.real), np.abs(z.imag))
+            return np.minimum(np.abs(np.real(z)), np.abs(np.imag(z)))
         if t == 'circle':
             return np.abs(np.abs(z) - 1.0)
         return np.full(z.shape, np.inf, dtype=np.float64)
@@ -279,16 +279,16 @@ class EscapeTimeFractal(FractalPage):
         div = np.zeros(c.shape, dtype=np.int32)
         abs_z = np.zeros(c.shape, dtype=np.float64)
         mask = np.ones(c.shape, dtype=bool)
-        if self.orbit_trap:
-            min_trap = np.full(c.shape, np.inf, dtype=np.float64)
-        if self.interior_colouring:
-            log_sum = np.zeros(c.shape, dtype=np.float64)
+        _orbit_trap = self.orbit_trap
+        _interior = self.interior_colouring
+        min_trap = np.full(c.shape, np.inf, dtype=np.float64)
+        log_sum = np.zeros(c.shape, dtype=np.float64)
         for i in range(1, self.max_iter + 1):
             z_new = self.iter_step(z, c)
             z = np.where(mask, z_new, z)
-            if self.interior_colouring:
+            if _interior:
                 log_sum += mask * np.log(np.maximum(np.abs(z), 1e-4))
-            if self.orbit_trap:
+            if _orbit_trap:
                 d = self._trap_dist(z)
                 min_trap = np.minimum(np.where(mask, d, min_trap), min_trap)
             abs_z_all = np.abs(z)
@@ -301,7 +301,7 @@ class EscapeTimeFractal(FractalPage):
 
         escaped = div > 0
 
-        if self.orbit_trap:
+        if _orbit_trap:
             shift = self._hue_shift
             norm = np.tanh(min_trap * 2.0)  # [0, inf) -> [0, 1)
             raw_idx = (norm * self.max_iter).astype(np.int32)
@@ -343,7 +343,7 @@ class EscapeTimeFractal(FractalPage):
             else:
                 rgb = self.palette[div]
 
-        if self.interior_colouring and not self.orbit_trap:
+        if _interior and not _orbit_trap:
             inset = ~escaped
             if inset.any():
                 lyap = log_sum / max(self.max_iter, 1)
