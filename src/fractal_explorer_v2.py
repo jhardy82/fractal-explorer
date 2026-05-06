@@ -165,6 +165,11 @@ class EscapeTimeFractal(FractalPage):
         max_iter          — iteration cap
         iter_step(z, c)   — one iteration step (returns new z)
         z0(c)             — optional initial z (defaults to 0+0j)
+
+    Class flags:
+        smooth_colouring  — set False on a subclass to revert to integer palette
+                            indexing (e.g. for forms where the smooth formula
+                            produces unwanted artefacts).
     """
 
     category = "A"
@@ -173,6 +178,7 @@ class EscapeTimeFractal(FractalPage):
     x_range = (-2.5, 1.0)
     y_range = (-1.25, 1.25)
     palette_offset = 0.0
+    smooth_colouring: bool = True
 
     def reset(self) -> None:
         super().reset()
@@ -180,6 +186,7 @@ class EscapeTimeFractal(FractalPage):
         self.surface.fill(BG)
         self.row = 0
         self.palette = hsv_palette(self.max_iter, hue_offset=self.palette_offset)
+        self.palette_f = self.palette.astype(np.float64)
 
     def iter_step(self, z: np.ndarray, c: np.ndarray) -> np.ndarray:
         return z * z + c
@@ -196,17 +203,46 @@ class EscapeTimeFractal(FractalPage):
         c = cx + 1j * cy
         z = self.z0(c)
         div = np.zeros(c.shape, dtype=np.int32)
+        abs_z = np.zeros(c.shape, dtype=np.float64)
         mask = np.ones(c.shape, dtype=bool)
         for i in range(1, self.max_iter + 1):
             z_new = self.iter_step(z, c)
             z = np.where(mask, z_new, z)
-            diverged = mask & (np.abs(z) > 4.0)
+            abs_z_all = np.abs(z)
+            diverged = mask & (abs_z_all > 4.0)
             div[diverged] = i
+            abs_z[diverged] = abs_z_all[diverged]
             mask &= ~diverged
             if not mask.any():
                 break
-        rgb = self.palette[div]                                     # (rows, w, 3)
-        rgb_t = rgb.transpose(1, 0, 2)                              # (w, rows, 3) for pygame
+
+        escaped = div > 0
+
+        if self.smooth_colouring and escaped.any():
+            # Smooth (continuous) iteration count — eliminates discrete banding.
+            # Formula: smooth = i - log2(log2(|z|))  (guard against domain errors
+            # with max(|z|, 2.0001) so inner log2 is always ≥ 1).
+            smooth = np.zeros(c.shape, dtype=np.float64)
+            log_z = np.log2(np.log2(np.maximum(abs_z[escaped], 2.0001)))
+            smooth[escaped] = div[escaped] - log_z
+            smooth[escaped] = np.maximum(smooth[escaped], 1.0)  # clamp to valid range
+
+            # Linearly interpolate between adjacent palette entries.
+            palette_f = self.palette_f
+            idx = np.where(escaped, np.clip(smooth, 1.0, self.max_iter - 1), 0.0)
+            idx_lo = np.floor(idx).astype(np.int32)
+            idx_hi = np.minimum(idx_lo + 1, self.max_iter)
+            frac = (idx - idx_lo)[..., np.newaxis]          # shape (..., 1) for broadcast
+            rgb = np.where(
+                escaped[..., np.newaxis],
+                ((1.0 - frac) * palette_f[idx_lo] + frac * palette_f[idx_hi]).astype(np.uint8),
+                self.palette[idx_lo],                        # in-set: palette[0] (black)
+            ).astype(np.uint8)
+        else:
+            # Opt-out path: original integer palette lookup.
+            rgb = self.palette[div]
+
+        rgb_t = rgb.transpose(1, 0, 2)                      # (w, rows, 3) for pygame
         sub = pygame.surfarray.make_surface(rgb_t)
         self.surface.blit(sub, (0, y0))
 
