@@ -30,6 +30,7 @@ class TestNamedPalettes:
         ("ice", "_ice_palette"),
     ])
     def test_palette_shape(self, engine, name, builder):
+        assert name in engine.PALETTE_NAMES
         fn = getattr(engine, builder)
         p = fn(80)
         assert p.shape == (81, 3)

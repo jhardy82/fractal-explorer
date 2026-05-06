@@ -46,6 +46,7 @@ from __future__ import annotations
 import colorsys
 import math
 import random
+from collections.abc import Callable
 
 import numba
 import numpy as np
@@ -144,7 +145,7 @@ def _ice_palette(n: int) -> np.ndarray:
 
 PALETTE_NAMES: list[str] = ['hsv', 'fire', 'ocean', 'neon', 'cosmic', 'ice']
 
-_PALETTE_BUILDERS: dict[str, object] = {
+_PALETTE_BUILDERS: dict[str, Callable[[int, float], np.ndarray]] = {
     'hsv':    lambda n, off: hsv_palette(n, hue_offset=off),
     'fire':   lambda n, _: _fire_palette(n),
     'ocean':  lambda n, _: _ocean_palette(n),
