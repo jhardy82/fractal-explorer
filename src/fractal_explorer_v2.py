@@ -1825,7 +1825,7 @@ class FractalExplorer:
             self._pan_active = False
 
     def _tick_zoom(self) -> None:
-        if self._zoom_target_x is None:
+        if self._zoom_target_x is None or self._zoom_target_y is None:
             return
         page = self.current
         if not isinstance(page, EscapeTimeFractal):
