@@ -1857,6 +1857,9 @@ class FractalExplorer:
         self._bm_notice: int = 0           # countdown frames for bookmark notice
         self._bm_notice_text: str = ""
 
+        # FPS overlay state
+        self._show_fps: bool = False
+
         self.current.ensure_init()
 
     def _instantiate_pages(self):
@@ -1968,12 +1971,14 @@ class FractalExplorer:
         self.screen.blit(arrow_r, (self.w - 40 - arrow_r.get_width(),
                                    nav_y + (NAV_H - arrow_r.get_height()) // 2))
         # keys hint
-        hint = self.font_xs.render("← →  Tab  1-5  R  F  P  O  I  C  J  S  B  N  M  G  K  E  L  Esc", True, DIM)
+        hint = self.font_xs.render("← →  Tab  1-5  R  F  P  O  I  C  J  S  B  N  M  G  K  D  [  ]  E  L  Esc", True, DIM)
         self.screen.blit(hint, ((self.w - hint.get_width()) // 2, nav_y + NAV_H - 12))
 
         # coordinate display for escape-time pages
         if isinstance(self.current, EscapeTimeFractal):
             coord_text = self._format_coord(self.current)
+            # Append iteration count
+            coord_text += f"  iter:{self.current.max_iter}"
             # Append Julia seed info if on Mandelbrot with a recorded seed
             if isinstance(self.current, Mandelbrot) and self._julia_seed_px is not None:
                 mx_seed, my_seed = self._julia_seed_px
@@ -1985,6 +1990,11 @@ class FractalExplorer:
             coord_surf = self.font_xs.render(coord_text, True, DIM)
             self.screen.blit(coord_surf, (8, self.h - NAV_H - 16))
 
+        # fps overlay — top-right of body area
+        if self._show_fps:
+            fps_txt = f"FPS {self.clock.get_fps():.0f}  frame {self.frame}"
+            fps_surf = self.font_xs.render(fps_txt, True, DIM)
+            self.screen.blit(fps_surf, (self.w - fps_surf.get_width() - 8, TITLE_H + 4))
 
         # math info overlay
         if self._show_info:
@@ -2142,6 +2152,18 @@ class FractalExplorer:
                 else:
                     self._cinematic = self._cinematic_before_kiosk
                     self._kiosk = False
+            elif k == pygame.K_d:
+                self._show_fps = not self._show_fps
+            elif k == pygame.K_RIGHTBRACKET:
+                page = self.current
+                if isinstance(page, EscapeTimeFractal):
+                    page.max_iter = min(page.max_iter + 50, 2000)
+                    page.row = 0
+            elif k == pygame.K_LEFTBRACKET:
+                page = self.current
+                if isinstance(page, EscapeTimeFractal):
+                    page.max_iter = max(page.max_iter - 50, 50)
+                    page.row = 0
             elif k == pygame.K_e:
                 if self._bookmarks:
                     self._save_bookmarks()
