@@ -347,7 +347,7 @@ wheels = [
 
 [[package]]
 name = "fractal-explorer"
-version = "0.4.0"
+version = "0.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "numba" },

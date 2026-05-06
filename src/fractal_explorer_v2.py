@@ -1951,13 +1951,6 @@ class FractalExplorer:
             coord_surf = self.font_xs.render(coord_text, True, DIM)
             self.screen.blit(coord_surf, (8, self.h - NAV_H - 16))
 
-            # Draw marker circle if seed is set on Mandelbrot
-            if isinstance(self.current, Mandelbrot) and self._julia_seed_px is not None:
-                mx_seed, my_seed = self._julia_seed_px
-                # Draw filled circle (red) at seed position
-                pygame.draw.circle(self.screen, (255, 68, 68), (int(mx_seed), int(my_seed)), 5)
-                # Draw outline circle (white) around seed position
-                pygame.draw.circle(self.screen, (255, 255, 255), (int(mx_seed), int(my_seed)), 7, 2)
 
         # math info overlay
         if self._show_info:
@@ -1989,6 +1982,15 @@ class FractalExplorer:
         else:
             self.screen.blit(body_surface, (0, TITLE_H))
             self.draw_chrome()
+
+        # Draw seed marker circle (visible in both cinematic and non-cinematic modes)
+        if isinstance(self.current, Mandelbrot) and self._julia_seed_px is not None:
+            mx_seed, my_seed = self._julia_seed_px
+            # Draw filled circle (red) at seed position
+            pygame.draw.circle(self.screen, (255, 68, 68), (int(mx_seed), int(my_seed)), 5)
+            # Draw outline circle (white) around seed position
+            pygame.draw.circle(self.screen, (255, 255, 255), (int(mx_seed), int(my_seed)), 7, 2)
+
         pygame.display.flip()
 
     # ── main loop ───────────────────────────────────────────────────────────
@@ -2066,6 +2068,7 @@ class FractalExplorer:
                     ci, pi, xr, yr = self._bookmarks[self._bookmark_idx]
                     target = self.pages[CAT_KEYS[ci]][pi]
                     if isinstance(target, EscapeTimeFractal):
+                        self._julia_seed_px = None
                         self.cat_idx = ci
                         self.page_idx = pi
                         self.current.ensure_init()

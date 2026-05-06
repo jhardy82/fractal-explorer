@@ -143,9 +143,14 @@ class TestJuliaSeedPicker:
         # Manually set seed pixel on a Mandelbrot page
         explorer._julia_seed_px = (200, 300)
         assert isinstance(explorer.current, engine.Mandelbrot)
-        # Verify the seed pixel is set
-        assert explorer._julia_seed_px is not None
-        # The _format_coord method should be extended to show Julia c= when seed is set
-        # This happens in the draw_chrome method, so we just verify the seed is present
-        # which triggers the "Julia c=" text annotation
-        assert explorer._julia_seed_px[0] > 0 and explorer._julia_seed_px[1] > 0
+        # Call draw to render and verify the marker circles are drawn at the seed pixel
+        explorer.draw()
+        # Check that red (seed marker) circle was drawn at the correct location
+        # by reading the pixel at the seed position
+        mx, my = explorer._julia_seed_px
+        pixel_color = explorer.screen.get_at((int(mx), int(my)))[:3]
+        # The pixel should be red-ish (255, 68, 68) from the filled circle
+        # Allow some tolerance for rendering/blending
+        assert pixel_color[0] > 200, f"Red channel too low: {pixel_color}"
+        assert pixel_color[1] < 150, f"Green channel too high: {pixel_color}"
+        assert pixel_color[2] < 150, f"Blue channel too high: {pixel_color}"
