@@ -179,6 +179,7 @@ class EscapeTimeFractal(FractalPage):
     y_range = (-1.25, 1.25)
     palette_offset = 0.0
     smooth_colouring: bool = True
+    hue_cycle_speed: int = 0    # frames per index step; 0 = disabled, e.g. 4 = shift every 4 frames
 
     def reset(self) -> None:
         self.__dict__.pop('x_range', None)
@@ -189,6 +190,7 @@ class EscapeTimeFractal(FractalPage):
         self.row = 0
         self.palette = hsv_palette(self.max_iter, hue_offset=self.palette_offset)
         self.palette_f = self.palette.astype(np.float64)
+        self._hue_shift: int = 0
 
     def iter_step(self, z: np.ndarray, c: np.ndarray) -> np.ndarray:
         return z * z + c
@@ -235,20 +237,29 @@ class EscapeTimeFractal(FractalPage):
             idx_lo = np.floor(idx).astype(np.int32)
             idx_hi = np.minimum(idx_lo + 1, self.max_iter)
             frac = (idx - idx_lo)[..., np.newaxis]          # shape (..., 1) for broadcast
+            shift = self._hue_shift
+            idx_lo_s = (idx_lo + shift) % (self.max_iter + 1)
+            idx_hi_s = (idx_hi + shift) % (self.max_iter + 1)
             rgb = np.where(
                 escaped[..., np.newaxis],
-                ((1.0 - frac) * palette_f[idx_lo] + frac * palette_f[idx_hi]).astype(np.uint8),
-                self.palette[idx_lo],                        # in-set: palette[0] (black)
+                ((1.0 - frac) * palette_f[idx_lo_s] + frac * palette_f[idx_hi_s]).astype(np.uint8),
+                self.palette[0],                             # in-set: always palette[0] (black)
             ).astype(np.uint8)
         else:
-            # Opt-out path: original integer palette lookup.
-            rgb = self.palette[div]
+            # Opt-out path: integer palette lookup with optional hue shift.
+            shift = self._hue_shift
+            rgb = self.palette[(div + shift) % (self.max_iter + 1)]
 
         rgb_t = rgb.transpose(1, 0, 2)                      # (w, rows, 3) for pygame
         sub = pygame.surfarray.make_surface(rgb_t)
         self.surface.blit(sub, (0, y0))
 
     def update(self, frame: int) -> None:
+        if self.hue_cycle_speed > 0:
+            new_shift = (frame // self.hue_cycle_speed) % (self.max_iter + 1)
+            if new_shift != self._hue_shift:
+                self._hue_shift = new_shift
+                self.row = 0
         if self.row >= self.h:
             return
         y1 = min(self.h, self.row + self.rows_per_frame)
