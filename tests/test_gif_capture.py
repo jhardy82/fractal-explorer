@@ -95,6 +95,16 @@ def explorer(engine):
     if not hasattr(exp, "_cinematic_before_kiosk"):
         exp._cinematic_before_kiosk = False
 
+    # Bookmark persistence notice state (T18)
+    if not hasattr(exp, "_bm_notice"):
+        exp._bm_notice = 0
+    if not hasattr(exp, "_bm_notice_text"):
+        exp._bm_notice_text = ""
+
+    # FPS overlay state (T19)
+    if not hasattr(exp, "_show_fps"):
+        exp._show_fps = False
+
     # Minimal pages dict so handle_event doesn't error on category navigation
     exp._instantiate_pages()
     exp.current.ensure_init()

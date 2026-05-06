@@ -1,7 +1,7 @@
 [project]
 name = "fractal-explorer"
-version = "0.7.0"
-description = "Interactive pygame explorer for 57+ fractal forms across 6 categories"
+version = "0.8.0"
+description = "Interactive pygame explorer for 57+ fractal forms across 6 categories — bookmark persistence, FPS overlay, dynamic iter control"
 authors = [{ name = "James Hardy", email = "james.hardy1124@gmail.com" }]
 readme = "README.md"
 license = { text = "MIT" }
