@@ -161,11 +161,13 @@ class TestZoomAroundCursor:
 
     def test_zoom_shrinks_viewport_width(self):
         """factor=0.85 must reduce viewport width (zoom in)."""
-        _, (new_x0, new_x1) = _zoom(
+        new_x_range, _ = _zoom(
             _W // 2, _H // 2, _X_RANGE, _Y_RANGE, _W, _H, ZOOM_FACTOR
         )
-        # Oops — _zoom returns (x_range, y_range), let me fix:
-        pass  # covered by test_zoom_shrinks_width below
+        old_width = _X_RANGE[1] - _X_RANGE[0]
+        new_width = new_x_range[1] - new_x_range[0]
+        assert new_width < old_width
+        assert abs(new_width - old_width * ZOOM_FACTOR) < 1e-9
 
     def test_zoom_shrinks_width(self):
         new_x_range, _ = _zoom(
