@@ -131,3 +131,71 @@ def pixel_hash(surface: pygame.Surface) -> str:
 @pytest.fixture
 def hash_surface():
     return pixel_hash
+
+
+# ---------------------------------------------------------------------------
+# Minimal explorer state helper — single source of truth for bare-__new__ fixtures
+# ---------------------------------------------------------------------------
+
+def _apply_minimal_explorer_state(
+    exp: object, engine: object, *, w: int = 160, h: int = 120
+) -> None:
+    """Apply canonical minimal state to a FractalExplorer created via __new__.
+
+    All test files that build a bare explorer (bypassing __new__) MUST call
+    this function instead of duplicating state inline.  When a new feature adds
+    a state variable to FractalExplorer.__init__, add it here ONLY — every
+    bare-fixture test file picks it up automatically.
+
+    Sections are tagged with the task that introduced each variable so the
+    maintenance burden is obvious at a glance.
+    """
+    import pygame  # noqa: PLC0415 (import inside function intentional)
+
+    # ── core display ────────────────────────────────────────────────────────
+    exp.w = w                                                           # type: ignore[attr-defined]
+    exp.h = h                                                           # type: ignore[attr-defined]
+    exp.body_h = h - engine.NAV_H - engine.TITLE_H                     # type: ignore[attr-defined]
+    exp.screen = pygame.Surface((w, h))                                 # type: ignore[attr-defined]
+    exp.font_big = pygame.font.SysFont("consolas", 14, bold=True)      # type: ignore[attr-defined]
+    exp.font_sm  = pygame.font.SysFont("consolas", 11)                 # type: ignore[attr-defined]
+    exp.font_xs  = pygame.font.SysFont("consolas", 10)                 # type: ignore[attr-defined]
+
+    # ── navigation / zoom / pan ─────────────────────────────────────────────
+    exp.running        = True                                           # type: ignore[attr-defined]
+    exp.frame          = 0                                              # type: ignore[attr-defined]
+    exp.cat_idx        = 0                                              # type: ignore[attr-defined]
+    exp.page_idx       = 0                                              # type: ignore[attr-defined]
+    exp._pan_active    = False                                          # type: ignore[attr-defined]
+    exp._pan_x0        = 0                                              # type: ignore[attr-defined]
+    exp._pan_y0        = 0                                              # type: ignore[attr-defined]
+    exp._pan_x_range   = (-2.5, 1.0)                                   # type: ignore[attr-defined]
+    exp._pan_y_range   = (-1.25, 1.25)                                  # type: ignore[attr-defined]
+    exp._zoom_target_x = None                                           # type: ignore[attr-defined]
+    exp._zoom_target_y = None                                           # type: ignore[attr-defined]
+    exp._zoom_lowres   = False                                          # type: ignore[attr-defined]
+    exp._cinematic     = False                                          # type: ignore[attr-defined]
+    exp._show_info     = False                                          # type: ignore[attr-defined]
+    exp._show_fps      = False   # T19 FPS overlay                     # type: ignore[attr-defined]
+    exp._bookmarks     = []                                             # type: ignore[attr-defined]
+    exp._bookmark_idx  = -1                                             # type: ignore[attr-defined]
+    exp._julia_seed_px = None                                           # type: ignore[attr-defined]
+
+    # ── GIF capture (T16) ───────────────────────────────────────────────────
+    exp._recording      = False                                         # type: ignore[attr-defined]
+    exp._frames         = []                                            # type: ignore[attr-defined]
+    exp._gif_notice     = 0                                             # type: ignore[attr-defined]
+    exp._last_gif_path  = ""                                            # type: ignore[attr-defined]
+
+    # ── kiosk / screensaver (T17) ───────────────────────────────────────────
+    exp._kiosk                  = False                                 # type: ignore[attr-defined]
+    exp._kiosk_timer            = 0                                     # type: ignore[attr-defined]
+    exp._cinematic_before_kiosk = False                                 # type: ignore[attr-defined]
+
+    # ── bookmark persistence (T18) ──────────────────────────────────────────
+    exp._bm_notice      = 0                                             # type: ignore[attr-defined]
+    exp._bm_notice_text = ""                                            # type: ignore[attr-defined]
+
+    # ── finish construction ─────────────────────────────────────────────────
+    exp._instantiate_pages()                                            # type: ignore[attr-defined]
+    exp.current.ensure_init()                                           # type: ignore[attr-defined]

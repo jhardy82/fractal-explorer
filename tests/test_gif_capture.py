@@ -46,69 +46,10 @@ def engine():
 
 @pytest.fixture()
 def explorer(engine):
-    """Create a FractalExplorer instance for each test."""
+    """Create a minimal FractalExplorer instance for each test."""
+    from conftest import _apply_minimal_explorer_state
     exp = engine.FractalExplorer.__new__(engine.FractalExplorer)
-    # Minimal init — bypass full pygame display setup
-    exp.w = 160
-    exp.h = 120
-    exp.body_h = 120 - engine.NAV_H - engine.TITLE_H
-    exp.screen = pygame.Surface((exp.w, exp.h))
-    exp.font_big = pygame.font.SysFont("consolas", 14, bold=True)
-    exp.font_sm = pygame.font.SysFont("consolas", 11)
-    exp.font_xs = pygame.font.SysFont("consolas", 10)
-
-    # Nav/zoom/pan state expected by handle_event
-    exp.running = True
-    exp.frame = 0
-    exp.cat_idx = 0
-    exp.page_idx = 0
-    exp._pan_active = False
-    exp._pan_x0 = 0
-    exp._pan_y0 = 0
-    exp._pan_x_range = (-2.5, 1.0)
-    exp._pan_y_range = (-1.25, 1.25)
-    exp._zoom_target_x = None
-    exp._zoom_target_y = None
-    exp._zoom_lowres = False
-    exp._cinematic = False
-    exp._show_info = False
-    exp._bookmarks = []
-    exp._bookmark_idx = -1
-    exp._julia_seed_px = None
-
-    # GIF state — must be initialised by __init__; if not, the test itself
-    # verifies absence and we initialise manually so later tests can proceed.
-    if not hasattr(exp, "_recording"):
-        exp._recording = False
-    if not hasattr(exp, "_frames"):
-        exp._frames = []
-    if not hasattr(exp, "_gif_notice"):
-        exp._gif_notice = 0
-    if not hasattr(exp, "_last_gif_path"):
-        exp._last_gif_path = ""
-
-    # Kiosk state — required since direct attribute access replaced getattr fallbacks
-    if not hasattr(exp, "_kiosk"):
-        exp._kiosk = False
-    if not hasattr(exp, "_kiosk_timer"):
-        exp._kiosk_timer = 0
-    if not hasattr(exp, "_cinematic_before_kiosk"):
-        exp._cinematic_before_kiosk = False
-
-    # Bookmark persistence notice state (T18)
-    if not hasattr(exp, "_bm_notice"):
-        exp._bm_notice = 0
-    if not hasattr(exp, "_bm_notice_text"):
-        exp._bm_notice_text = ""
-
-    # FPS overlay state (T19)
-    if not hasattr(exp, "_show_fps"):
-        exp._show_fps = False
-
-    # Minimal pages dict so handle_event doesn't error on category navigation
-    exp._instantiate_pages()
-    exp.current.ensure_init()
-
+    _apply_minimal_explorer_state(exp, engine)
     return exp
 
 
