@@ -216,19 +216,66 @@ class TestExportGif:
         with patch.dict(sys.modules, {"imageio": imageio_mock}):
             created_paths: list[str] = []
 
-            def fake_imwrite(path, frames, **kwargs):
+            def fake_mimwrite(path, frames, **kwargs):
                 Path(path).write_bytes(b"GIF89a")
                 created_paths.append(path)
 
-            imageio_mock.imwrite.side_effect = fake_imwrite
+            imageio_mock.mimwrite.side_effect = fake_mimwrite
             explorer._export_gif()
 
-        assert created_paths, "imwrite was not called"
+        assert created_paths, "mimwrite was not called"
         filename = Path(created_paths[0]).name
         pattern = r"^fractal_\d{8}_\d{6}\.gif$"
         assert re.match(pattern, filename), (
             f"Filename {filename!r} does not match fractal_YYYYMMDD_HHMMSS.gif"
         )
+
+
+class TestExportGifRealWrite:
+    def test_export_gif_real_write(self, explorer, tmp_path, monkeypatch):
+        """_export_gif() must call imageio.mimwrite and produce a readable GIF.
+
+        This test does NOT mock imageio — it exercises the real write path to
+        ensure Fix 1 (mimwrite replacing the broken imwrite try/except) actually
+        works end-to-end.
+        """
+        import datetime as _dt
+
+        import imageio
+
+        # Fix the timestamp so the output filename is predictable.
+        fixed_dt = _dt.datetime(2026, 5, 6, 12, 0, 0)
+
+        class _FakeDatetime(_dt.datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return fixed_dt
+
+        # Redirect CWD so the GIF is written into tmp_path.
+        monkeypatch.chdir(tmp_path)
+
+        # Patch datetime.datetime in the source module.
+        engine_mod = sys.modules.get("fractal_engine_gif") or sys.modules["fractal_explorer_v2"]
+        monkeypatch.setattr(engine_mod.datetime, "datetime", _FakeDatetime)
+
+        # Provide 3 distinct synthetic frames (different fill values prevent
+        # GIF encoder from collapsing identical frames into one).
+        h, w = explorer.h, explorer.w
+        f0 = np.full((h, w, 3), 10, dtype=np.uint8)
+        f1 = np.full((h, w, 3), 128, dtype=np.uint8)
+        f2 = np.full((h, w, 3), 200, dtype=np.uint8)
+        explorer._frames = [f0, f1, f2]
+
+        # Call synchronously (bypasses the daemon thread).
+        explorer._export_gif()
+
+        expected = tmp_path / "fractal_20260506_120000.gif"
+        assert expected.exists(), f"GIF not found at {expected}; dir={list(tmp_path.iterdir())}"
+        assert expected.stat().st_size > 0, "GIF file is empty"
+
+        # Verify imageio can read it back and that all 3 frames are present.
+        read_back = imageio.mimread(str(expected))
+        assert len(read_back) == 3, f"Expected 3 frames, got {len(read_back)}"
 
 
 class TestChromeRender:

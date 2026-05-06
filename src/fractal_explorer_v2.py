@@ -95,7 +95,7 @@ PHI = (1 + math.sqrt(5)) / 2
 
 GIF_MAX_FRAMES = 300    # 20 seconds at 15 fps
 GIF_FPS = 15
-GIF_NOTICE_FRAMES = 90  # show "GIF saved" notice for 3 seconds at 30 fps
+GIF_NOTICE_FRAMES = 90  # show "GIF saved" notice for 1.5 seconds at 60 fps
 
 # ──────────────────────────────────────────────────────────────────────────────
 # PALETTE HELPERS
@@ -2230,19 +2230,19 @@ class FractalExplorer:
 
     def _export_gif(self) -> None:
         """Write collected frames to an animated GIF (runs in background thread)."""
-        import imageio  # lazy import — only needed when actually exporting
-        frames = list(self._frames)  # snapshot
-        if not frames:
-            return
-        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        path = pathlib.Path(f"fractal_{ts}.gif")
         try:
-            imageio.imwrite(str(path), frames, fps=GIF_FPS, loop=0)
-        except TypeError:
-            # Older imageio versions may not accept fps for GIF via imwrite
+            import imageio  # lazy import — only needed when actually exporting
+            frames = list(self._frames)  # snapshot
+            if not frames:
+                return
+            ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            path = pathlib.Path(f"fractal_{ts}.gif")
             imageio.mimwrite(str(path), frames, fps=GIF_FPS, loop=0)
-        self._gif_notice = GIF_NOTICE_FRAMES
-        self._last_gif_path = path.name
+            self._gif_notice = GIF_NOTICE_FRAMES
+            self._last_gif_path = path.name
+        except Exception as e:
+            self._gif_notice = GIF_NOTICE_FRAMES
+            self._last_gif_path = f"ERROR: {e}"
 
     def run(self):
         while self.running:
