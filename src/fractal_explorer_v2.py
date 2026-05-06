@@ -181,6 +181,8 @@ class EscapeTimeFractal(FractalPage):
     smooth_colouring: bool = True
 
     def reset(self) -> None:
+        self.__dict__.pop('x_range', None)
+        self.__dict__.pop('y_range', None)
         super().reset()
         self.surface = pygame.Surface((self.w, self.h))
         self.surface.fill(BG)
@@ -1645,6 +1647,11 @@ class FractalExplorer:
         self.frame = 0
         self.clock = pygame.time.Clock()
         self.running = True
+        self._pan_active = False
+        self._pan_x0 = 0
+        self._pan_y0 = 0
+        self._pan_x_range: tuple[float, float] = (-2.5, 1.0)
+        self._pan_y_range: tuple[float, float] = (-1.25, 1.25)
 
         self.current.ensure_init()
 
@@ -1766,6 +1773,53 @@ class FractalExplorer:
                 self.toggle_fullscreen()
             elif pygame.K_1 <= k <= pygame.K_5:
                 self.jump_category(k - pygame.K_1)
+        elif e.type == pygame.MOUSEWHEEL:
+            page = self.current
+            if isinstance(page, EscapeTimeFractal):
+                mouse_x, mouse_y = pygame.mouse.get_pos()
+                body_mouse_y = mouse_y - TITLE_H
+                if body_mouse_y < 0 or mouse_y >= self.h - NAV_H:
+                    return
+                body_w, body_h = self.w, self.body_h
+                x0, x1 = page.x_range
+                y0, y1 = page.y_range
+                factor = 0.85 ** e.y
+                cx = x0 + (mouse_x / body_w) * (x1 - x0)
+                cy = y0 + (body_mouse_y / body_h) * (y1 - y0)
+                t_x = mouse_x / body_w
+                t_y = body_mouse_y / body_h
+                new_xw = (x1 - x0) * factor
+                new_yh = (y1 - y0) * factor
+                page.x_range = (cx - t_x * new_xw, cx + (1 - t_x) * new_xw)
+                page.y_range = (cy - t_y * new_yh, cy + (1 - t_y) * new_yh)
+                page.row = 0
+        elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            page = self.current
+            if isinstance(page, EscapeTimeFractal):
+                mouse_x, mouse_y = e.pos
+                if TITLE_H <= mouse_y < self.h - NAV_H:
+                    self._pan_active = True
+                    self._pan_x0 = mouse_x
+                    self._pan_y0 = mouse_y
+                    self._pan_x_range = page.x_range
+                    self._pan_y_range = page.y_range
+        elif e.type == pygame.MOUSEMOTION:
+            if self._pan_active:
+                page = self.current
+                if isinstance(page, EscapeTimeFractal):
+                    mouse_x, mouse_y = e.pos
+                    dx = mouse_x - self._pan_x0
+                    dy = mouse_y - self._pan_y0
+                    x0, x1 = self._pan_x_range
+                    y0, y1 = self._pan_y_range
+                    body_w, body_h = self.w, self.body_h
+                    xw = x1 - x0
+                    yh = y1 - y0
+                    page.x_range = (x0 - dx * xw / body_w, x1 - dx * xw / body_w)
+                    page.y_range = (y0 - dy * yh / body_h, y1 - dy * yh / body_h)
+                    page.row = 0
+        elif e.type == pygame.MOUSEBUTTONUP and e.button == 1:
+            self._pan_active = False
 
     def run(self):
         while self.running:
