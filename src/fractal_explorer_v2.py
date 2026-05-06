@@ -238,8 +238,11 @@ class EscapeTimeFractal(FractalPage):
             idx_hi = np.minimum(idx_lo + 1, self.max_iter)
             frac = (idx - idx_lo)[..., np.newaxis]          # shape (..., 1) for broadcast
             shift = self._hue_shift
-            idx_lo_s = (idx_lo + shift) % (self.max_iter + 1)
-            idx_hi_s = (idx_hi + shift) % (self.max_iter + 1)
+            if shift:
+                idx_lo_s = (idx_lo + shift) % (self.max_iter + 1)
+                idx_hi_s = (idx_hi + shift) % (self.max_iter + 1)
+            else:
+                idx_lo_s, idx_hi_s = idx_lo, idx_hi
             rgb = np.where(
                 escaped[..., np.newaxis],
                 ((1.0 - frac) * palette_f[idx_lo_s] + frac * palette_f[idx_hi_s]).astype(np.uint8),
@@ -249,8 +252,11 @@ class EscapeTimeFractal(FractalPage):
             # Opt-out path: integer palette lookup with optional hue shift.
             # In-set pixels (div == 0 / escaped == False) always map to palette[0] (black).
             shift = self._hue_shift
-            shifted_div = np.where(escaped, (div + shift) % (self.max_iter + 1), 0)
-            rgb = self.palette[shifted_div]
+            if shift:
+                shifted_div = np.where(escaped, (div + shift) % (self.max_iter + 1), 0)
+                rgb = self.palette[shifted_div]
+            else:
+                rgb = self.palette[div]
 
         rgb_t = rgb.transpose(1, 0, 2)                      # (w, rows, 3) for pygame
         sub = pygame.surfarray.make_surface(rgb_t)
