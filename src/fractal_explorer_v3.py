@@ -183,20 +183,17 @@ def main() -> None:
         label = next(c[1] for c in engine.CATEGORIES if c[0] == k)
         print(f"  {k} · {label:<12s}: {n} forms")
 
-    _orig_handle = engine.FractalExplorer.handle_event
+    class FractalExplorer6(engine.FractalExplorer):
+        def handle_event(self, e):
+            import pygame
+            if e.type == pygame.KEYDOWN:
+                n_cats = len(engine.CAT_KEYS)
+                if pygame.K_1 <= e.key <= pygame.K_1 + n_cats - 1:
+                    self.jump_category(e.key - pygame.K_1)
+                    return
+            super().handle_event(e)
 
-    def _patched_handle(self, e):
-        import pygame
-        if e.type == pygame.KEYDOWN:
-            n_cats = len(engine.CAT_KEYS)
-            if pygame.K_1 <= e.key <= pygame.K_1 + n_cats - 1:
-                self.jump_category(e.key - pygame.K_1)
-                return
-        _orig_handle(self, e)
-
-    engine.FractalExplorer.handle_event = _patched_handle
-
-    explorer = engine.FractalExplorer()
+    explorer = FractalExplorer6()
     explorer.run()
 
 

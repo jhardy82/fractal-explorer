@@ -1181,10 +1181,10 @@ class LSystemFractal(FractalPage):
     category = "C"
     axiom = "F"
     rules: dict[str, str] = {}
-    angle_deg = 90
-    iterations = 4
-    draw_chars = ("F",)
-    length = 10
+    angle_deg: float = 90
+    iterations: int = 4
+    draw_chars: tuple[str, ...] = ("F",)
+    length: float = 10
     line_color = (218, 228, 248)
     line_width = 1
     start_dir_deg = -90
@@ -1197,7 +1197,7 @@ class LSystemFractal(FractalPage):
         for _ in range(self.iterations):
             s = "".join(self.rules.get(ch, ch) for ch in s)
         # turtle-walk to get points
-        points = [(0.0, 0.0)]
+        points: list[tuple[float | None, float | None]] = [(0.0, 0.0)]
         x, y = 0.0, 0.0
         head = math.radians(self.start_dir_deg)
         a = math.radians(self.angle_deg)
@@ -1209,7 +1209,7 @@ class LSystemFractal(FractalPage):
                 points.append((x, y))
             elif ch == "f":
                 x += self.length * math.cos(head); y += self.length * math.sin(head)
-                points.append((None, None)); points.append((x, y))   # type: ignore[arg-type]  # pen-up break
+                points.append((None, None)); points.append((x, y))   # pen-up break
             elif ch == "+":
                 head += a
             elif ch == "-":
@@ -1219,7 +1219,7 @@ class LSystemFractal(FractalPage):
             elif ch == "]":
                 if stack:
                     x, y, head = stack.pop()
-                    points.append((None, None)); points.append((x, y))  # type: ignore[arg-type]
+                    points.append((None, None)); points.append((x, y))  # pen-up break after bracket
         # bbox + scale
         xs = [p[0] for p in points if p[0] is not None]
         ys = [p[1] for p in points if p[1] is not None]
@@ -1231,7 +1231,7 @@ class LSystemFractal(FractalPage):
         scale = min((self.w - 2 * self.pad) / max(bw, 1e-9),
                     (self.h - 2 * self.pad) / max(bh, 1e-9))
         cx, cy = (bx0 + bx1) / 2, (by0 + by1) / 2
-        self.points = [(None if p[0] is None else
+        self.points = [(None if p[0] is None or p[1] is None else
                         (int(self.w / 2 + (p[0] - cx) * scale),
                          int(self.h / 2 + (p[1] - cy) * scale)))
                        for p in points]
@@ -2339,7 +2339,7 @@ def main():
 try:
     from fractal_newton import Newton4, Newton5, Newton6
 
-    PAGE_CLASSES["A"].extend([Newton4, Newton5, Newton6])  # type: ignore[arg-type]
+    PAGE_CLASSES["A"].extend([Newton4, Newton5, Newton6])  # type: ignore[list-item]
 except ImportError:
     pass  # module not yet present during early development
 
