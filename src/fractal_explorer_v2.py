@@ -144,6 +144,7 @@ def _ice_palette(n: int) -> np.ndarray:
 
 
 PALETTE_NAMES: list[str] = ['hsv', 'fire', 'ocean', 'neon', 'cosmic', 'ice']
+ORBIT_TRAPS: list[str] = ['', 'point', 'line', 'cross', 'circle']
 
 _PALETTE_BUILDERS: dict[str, Callable[[int, float], np.ndarray]] = {
     'hsv':    lambda n, off: hsv_palette(n, hue_offset=off),
@@ -233,6 +234,7 @@ class EscapeTimeFractal(FractalPage):
     palette_name: str = 'hsv'
     smooth_colouring: bool = True
     hue_cycle_speed: int = 0    # frames per index step; 0 = disabled, e.g. 4 = shift every 4 frames
+    orbit_trap: str = ''  # '', 'point', 'line', 'cross', 'circle'
 
     def reset(self) -> None:
         self.__dict__.pop('x_range', None)
@@ -252,6 +254,19 @@ class EscapeTimeFractal(FractalPage):
     def z0(self, c: np.ndarray) -> np.ndarray:
         return np.zeros_like(c)
 
+    def _trap_dist(self, z: np.ndarray) -> np.ndarray:
+        """Per-pixel distance from z to the current orbit trap shape."""
+        t = self.orbit_trap
+        if t == 'point':
+            return np.abs(z)
+        if t == 'line':
+            return np.abs(z.imag)
+        if t == 'cross':
+            return np.minimum(np.abs(z.real), np.abs(z.imag))
+        if t == 'circle':
+            return np.abs(np.abs(z) - 1.0)
+        return np.full(z.shape, np.inf, dtype=np.float64)
+
     def render_rows(self, y0: int, y1: int) -> None:
         x0, x1 = self.x_range
         ymin, ymax = self.y_range
@@ -263,9 +278,14 @@ class EscapeTimeFractal(FractalPage):
         div = np.zeros(c.shape, dtype=np.int32)
         abs_z = np.zeros(c.shape, dtype=np.float64)
         mask = np.ones(c.shape, dtype=bool)
+        if self.orbit_trap:
+            min_trap = np.full(c.shape, np.inf, dtype=np.float64)
         for i in range(1, self.max_iter + 1):
             z_new = self.iter_step(z, c)
             z = np.where(mask, z_new, z)
+            if self.orbit_trap:
+                d = self._trap_dist(z)
+                min_trap = np.minimum(np.where(mask, d, min_trap), min_trap)
             abs_z_all = np.abs(z)
             diverged = mask & (abs_z_all > 4.0)
             div[diverged] = i
@@ -276,7 +296,13 @@ class EscapeTimeFractal(FractalPage):
 
         escaped = div > 0
 
-        if self.smooth_colouring and escaped.any():
+        if self.orbit_trap:
+            shift = self._hue_shift
+            norm = np.tanh(min_trap * 2.0)  # [0, inf) -> [0, 1)
+            raw_idx = (norm * self.max_iter).astype(np.int32)
+            idx = (raw_idx + shift) % (self.max_iter + 1)
+            rgb = self.palette[idx]
+        elif self.smooth_colouring and escaped.any():
             # Smooth (continuous) iteration count — eliminates discrete banding.
             # Formula: smooth = i - log2(log2(|z|))  (guard against domain errors
             # with max(|z|, 2.0001) so inner log2 is always ≥ 1).
@@ -1840,7 +1866,7 @@ class FractalExplorer:
         self.screen.blit(arrow_r, (self.w - 40 - arrow_r.get_width(),
                                    nav_y + (NAV_H - arrow_r.get_height()) // 2))
         # keys hint
-        hint = self.font_xs.render("← →  Tab  1-5  R  F  P  C  J  Esc", True, DIM)
+        hint = self.font_xs.render("← →  Tab  1-5  R  F  P  O  C  J  Esc", True, DIM)
         self.screen.blit(hint, ((self.w - hint.get_width()) // 2, nav_y + NAV_H - 12))
 
     def draw(self):
@@ -1879,6 +1905,12 @@ class FractalExplorer:
                 page = self.current
                 if isinstance(page, EscapeTimeFractal):
                     page.cycle_palette()
+            elif k == pygame.K_o:
+                page = self.current
+                if isinstance(page, EscapeTimeFractal):
+                    idx = (ORBIT_TRAPS.index(page.orbit_trap) + 1) % len(ORBIT_TRAPS)
+                    page.orbit_trap = ORBIT_TRAPS[idx]
+                    page.row = 0
             elif k == pygame.K_j:
                 page = self.current
                 if isinstance(page, JuliaFractal):
