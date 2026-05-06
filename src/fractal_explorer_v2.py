@@ -44,8 +44,11 @@ RUN
 from __future__ import annotations
 
 import colorsys
+import datetime
 import math
+import pathlib
 import random
+import threading
 from collections.abc import Callable
 
 import numba
@@ -89,6 +92,10 @@ NAV_H = 56
 TITLE_H = 30
 
 PHI = (1 + math.sqrt(5)) / 2
+
+GIF_MAX_FRAMES = 300    # 20 seconds at 15 fps
+GIF_FPS = 15
+GIF_NOTICE_FRAMES = 90  # show "GIF saved" notice for 3 seconds at 30 fps
 
 # ──────────────────────────────────────────────────────────────────────────────
 # PALETTE HELPERS
@@ -1833,6 +1840,12 @@ class FractalExplorer:
         self._bookmark_idx: int = -1  # sentinel: -1 means "before first entry"
         self._julia_seed_px: tuple[int, int] | None = None
 
+        # GIF capture state
+        self._recording: bool = False
+        self._frames: list = []           # list of (H,W,3) uint8 numpy arrays
+        self._gif_notice: int = 0         # countdown frames for "GIF saved" notice
+        self._last_gif_path: str = ""
+
         self.current.ensure_init()
 
     def _instantiate_pages(self):
@@ -1900,10 +1913,17 @@ class FractalExplorer:
         page = self.current
         n_pages = len(self.pages[self.current_cat])
         title = f"{cat_key} · {cat_label}  ·  {self.page_idx + 1}/{n_pages}  ·  {page.name}"
+        if self._recording:
+            title += "  ● REC"
         self.screen.blit(self.font_big.render(title, True, cat_col), (12, 8))
-        # info on right
-        info_surface = self.font_xs.render(page.info, True, DIMMER)
-        self.screen.blit(info_surface, (self.w - info_surface.get_width() - 12, 10))
+        # info on right — show GIF notice or normal page info
+        if self._gif_notice > 0 and self._last_gif_path:
+            notice_txt = f"GIF saved → {self._last_gif_path}"
+            notice_surf = self.font_xs.render(notice_txt, True, (80, 240, 120))
+            self.screen.blit(notice_surf, (self.w - notice_surf.get_width() - 12, 10))
+        else:
+            info_surface = self.font_xs.render(page.info, True, DIMMER)
+            self.screen.blit(info_surface, (self.w - info_surface.get_width() - 12, 10))
         if self._bookmarks:
             bm_txt = self.font_xs.render(f"[{len(self._bookmarks)} bookmarks]", True, DIM)
             self.screen.blit(bm_txt, (self.w // 2 - bm_txt.get_width() // 2, 10))
@@ -2077,6 +2097,13 @@ class FractalExplorer:
                         target.row = 0
             elif k == pygame.K_m:
                 self._show_info = not self._show_info
+            elif k == pygame.K_g:
+                if not self._recording:
+                    self._recording = True
+                    self._frames = []
+                else:
+                    self._recording = False
+                    threading.Thread(target=self._export_gif, daemon=True).start()
             elif pygame.K_1 <= k <= pygame.K_5:
                 self.jump_category(k - pygame.K_1)
         elif e.type == pygame.MOUSEWHEEL:
@@ -2183,6 +2210,40 @@ class FractalExplorer:
             else:
                 page.row = 0
 
+    # ── GIF capture ─────────────────────────────────────────────────────────
+    def _capture_frame(self) -> None:
+        """Capture one frame from self.screen into _frames (call once per render tick)."""
+        if self._gif_notice > 0:
+            self._gif_notice -= 1
+
+        if not self._recording:
+            return
+
+        if len(self._frames) < GIF_MAX_FRAMES:
+            arr = pygame.surfarray.array3d(self.screen)
+            arr = arr.transpose(1, 0, 2)  # (W,H,3) → (H,W,3)
+            self._frames.append(arr.copy())
+        else:
+            # Auto-stop at cap
+            self._recording = False
+            threading.Thread(target=self._export_gif, daemon=True).start()
+
+    def _export_gif(self) -> None:
+        """Write collected frames to an animated GIF (runs in background thread)."""
+        import imageio  # lazy import — only needed when actually exporting
+        frames = list(self._frames)  # snapshot
+        if not frames:
+            return
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = pathlib.Path(f"fractal_{ts}.gif")
+        try:
+            imageio.imwrite(str(path), frames, fps=GIF_FPS, loop=0)
+        except TypeError:
+            # Older imageio versions may not accept fps for GIF via imwrite
+            imageio.mimwrite(str(path), frames, fps=GIF_FPS, loop=0)
+        self._gif_notice = GIF_NOTICE_FRAMES
+        self._last_gif_path = path.name
+
     def run(self):
         while self.running:
             for e in pygame.event.get():
@@ -2190,6 +2251,7 @@ class FractalExplorer:
             self._tick_zoom()
             self.current.update(self.frame)
             self.draw()
+            self._capture_frame()
             self.frame += 1
             self.clock.tick(60)
         pygame.quit()
