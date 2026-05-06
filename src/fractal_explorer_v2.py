@@ -237,11 +237,16 @@ class EscapeTimeFractal(FractalPage):
     orbit_trap: str = ''  # '', 'point', 'line', 'cross', 'circle'
     interior_colouring: bool = False  # colour in-set pixels by Lyapunov exponent
 
+    _rw: int = 0   # actual render width; equals w in full-res, w//4 in low-res
+    _rh: int = 0   # actual render height; equals h in full-res, h//4 in low-res
+
     def reset(self) -> None:
         self.__dict__.pop('x_range', None)
         self.__dict__.pop('y_range', None)
         super().reset()
-        self.surface = pygame.Surface((self.w, self.h))
+        self._rw = self.w
+        self._rh = self.h
+        self.surface = pygame.Surface((self._rw, self._rh))
         self.surface.fill(BG)
         self.row = 0
         builder = _PALETTE_BUILDERS.get(self.palette_name, _PALETTE_BUILDERS['hsv'])
@@ -271,8 +276,8 @@ class EscapeTimeFractal(FractalPage):
     def render_rows(self, y0: int, y1: int) -> None:
         x0, x1 = self.x_range
         ymin, ymax = self.y_range
-        xs = np.linspace(x0, x1, self.w)
-        ys = np.linspace(ymin, ymax, self.h)[y0:y1]
+        xs = np.linspace(x0, x1, self._rw)
+        ys = np.linspace(ymin, ymax, self._rh)[y0:y1]
         cx, cy = np.meshgrid(xs, ys)
         c = cx + 1j * cy
         z = self.z0(c)
@@ -364,9 +369,9 @@ class EscapeTimeFractal(FractalPage):
             if new_shift != self._hue_shift:
                 self._hue_shift = new_shift
                 self.row = 0
-        if self.row >= self.h:
+        if self.row >= self._rh:
             return
-        y1 = min(self.h, self.row + self.rows_per_frame)
+        y1 = min(self._rh, self.row + self.rows_per_frame)
         self.render_rows(self.row, y1)
         self.row = y1
 
@@ -379,7 +384,10 @@ class EscapeTimeFractal(FractalPage):
         self.row = 0
 
     def draw(self, screen: pygame.Surface) -> None:
-        screen.blit(self.surface, (0, 0))
+        if self._rw != self.w:
+            screen.blit(pygame.transform.scale(self.surface, (self.w, self.h)), (0, 0))
+        else:
+            screen.blit(self.surface, (0, 0))
 
 
 class JuliaFractal(EscapeTimeFractal):
@@ -458,7 +466,7 @@ class BurningShip(EscapeTimeFractal):
     palette_offset = 0.10
 
     def iter_step(self, z, c):
-        return (np.abs(z.real) + 1j * np.abs(z.imag)) ** 2 + c
+        return (np.abs(np.real(z)) + 1j * np.abs(np.imag(z))) ** 2 + c
 
 
 class Tricorn(EscapeTimeFractal):
@@ -774,7 +782,6 @@ class SierpinskiCarpet(IFSChaosFractal):
         for j in range(3):
             if not (i == 1 and j == 1):
                 transforms.append((1 / 3, 0, 0, 1 / 3, i / 3, j / 3, 1 / 8))
-    del i, j
 
 
 class SierpinskiHexagon(IFSChaosFractal):
@@ -787,7 +794,6 @@ class SierpinskiHexagon(IFSChaosFractal):
         ang = math.pi * k / 3
         cx_, cy_ = math.cos(ang), math.sin(ang)
         transforms.append((_r, 0, 0, _r, cx_ * (1 - _r), cy_ * (1 - _r), 1 / 6))
-    del k, ang, cx_, cy_, _r
 
 
 class CantorSetIFS(IFSChaosFractal):
@@ -1169,7 +1175,7 @@ class LSystemFractal(FractalPage):
                 points.append((x, y))
             elif ch == "f":
                 x += self.length * math.cos(head); y += self.length * math.sin(head)
-                points.append((None, None)); points.append((x, y))   # pen-up break
+                points.append((None, None)); points.append((x, y))   # type: ignore[arg-type]  # pen-up break
             elif ch == "+":
                 head += a
             elif ch == "-":
@@ -1179,7 +1185,7 @@ class LSystemFractal(FractalPage):
             elif ch == "]":
                 if stack:
                     x, y, head = stack.pop()
-                    points.append((None, None)); points.append((x, y))
+                    points.append((None, None)); points.append((x, y))  # type: ignore[arg-type]
         # bbox + scale
         xs = [p[0] for p in points if p[0] is not None]
         ys = [p[1] for p in points if p[1] is not None]
@@ -1576,13 +1582,13 @@ class FlowerOfLife(SacredGeometryForm):
         cx, cy = self.w / 2, self.h / 2
         r = min(self.w, self.h) * 0.10
         # 19 circles in hex packing
-        positions = [(0, 0)]
+        positions = [(0.0, 0.0)]
         for ring in (1, 2):
             for k in range(6 * ring):
                 ang = math.pi / 3 * (k / ring) + (math.pi / 6 if ring == 2 and k % 2 == 1 else 0)
                 positions.append((ring * r * math.cos(ang), ring * r * math.sin(ang)))
         # use a cleaner hex: 1 + 6 + 12 = 19
-        positions = [(0, 0)]
+        positions = [(0.0, 0.0)]
         for k in range(6):
             ang = math.pi / 3 * k
             positions.append((r * math.cos(ang), r * math.sin(ang)))
@@ -1794,6 +1800,7 @@ class FractalExplorer:
         self._pan_y_range: tuple[float, float] = (-1.25, 1.25)
         self._zoom_target_x: tuple[float, float] | None = None
         self._zoom_target_y: tuple[float, float] | None = None
+        self._zoom_lowres: bool = False
         self._cinematic: bool = False
 
         self.current.ensure_init()
@@ -1834,8 +1841,9 @@ class FractalExplorer:
         self.current.ensure_init()
 
     def reset_current(self):
-        self.current.reset()
         self._zoom_target_x = self._zoom_target_y = None
+        self._zoom_lowres = False
+        self.current.reset()
 
     def toggle_fullscreen(self):
         self.fullscreen = not self.fullscreen
@@ -1977,12 +1985,28 @@ class FractalExplorer:
                 new_yh = (y1 - y0) * factor
                 self._zoom_target_x = (cx - t_x * new_xw, cx + (1 - t_x) * new_xw)
                 self._zoom_target_y = (cy - t_y * new_yh, cy + (1 - t_y) * new_yh)
+                # Switch to low-res mode for instant preview during zoom
+                if not self._zoom_lowres:
+                    self._zoom_lowres = True
+                    page._rw = max(1, page.w // 4)
+                    page._rh = max(1, page.h // 4)
+                    page.surface = pygame.Surface((page._rw, page._rh))
+                    page.surface.fill(BG)
         elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
             page = self.current
             if isinstance(page, EscapeTimeFractal):
                 mouse_x, mouse_y = e.pos
                 if TITLE_H <= mouse_y < self.h - NAV_H:
                     self._zoom_target_x = self._zoom_target_y = None
+                    if self._zoom_lowres:
+                        self._zoom_lowres = False
+                        p = self.current
+                        if isinstance(p, EscapeTimeFractal):
+                            p._rw = p.w
+                            p._rh = p.h
+                            p.surface = pygame.Surface((p._rw, p._rh))
+                            p.surface.fill(BG)
+                            p.row = 0
                     self._pan_active = True
                     self._pan_x0 = mouse_x
                     self._pan_y0 = mouse_y
@@ -2027,10 +2051,24 @@ class FractalExplorer:
             page.x_range = self._zoom_target_x
             page.y_range = self._zoom_target_y
             self._zoom_target_x = self._zoom_target_y = None
+            # Switch back to full-res and start fresh render
+            if self._zoom_lowres:
+                self._zoom_lowres = False
+                page._rw = page.w
+                page._rh = page.h
+                page.surface = pygame.Surface((page._rw, page._rh))
+                page.surface.fill(BG)
+            page.row = 0
         else:
             page.x_range = (nx0, nx1)
             page.y_range = (ny0, ny1)
-        page.row = 0
+            if self._zoom_lowres:
+                # Render full low-res frame synchronously (fast — ~400×200 pixels)
+                page.surface.fill(BG)
+                page.render_rows(0, page._rh)
+                page.row = page._rh  # mark done so update() skips this frame
+            else:
+                page.row = 0
 
     def run(self):
         while self.running:
