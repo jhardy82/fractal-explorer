@@ -1882,7 +1882,7 @@ class FractalExplorer:
         self.screen.blit(arrow_r, (self.w - 40 - arrow_r.get_width(),
                                    nav_y + (NAV_H - arrow_r.get_height()) // 2))
         # keys hint
-        hint = self.font_xs.render("← →  Tab  1-5  R  F  P  O  I  C  J  Esc", True, DIM)
+        hint = self.font_xs.render("← →  Tab  1-5  R  F  P  O  I  C  J  S  Esc", True, DIM)
         self.screen.blit(hint, ((self.w - hint.get_width()) // 2, nav_y + NAV_H - 12))
 
     def draw(self):
@@ -1941,6 +1941,21 @@ class FractalExplorer:
                     else:
                         page.flight_speed = 0.02
                     page.row = 0
+            elif k == pygame.K_s:
+                page = self.current
+                if isinstance(page, Mandelbrot):
+                    mx, my = pygame.mouse.get_pos()
+                    body_y = max(0, min(my - TITLE_H, self.body_h - 1))
+                    cx = page.x_range[0] + (mx / self.w) * (page.x_range[1] - page.x_range[0])
+                    cy = page.y_range[0] + (body_y / self.body_h) * (page.y_range[1] - page.y_range[0])
+                    julia_pages = self.pages.get('A', [])
+                    for ji, jp in enumerate(julia_pages):
+                        if isinstance(jp, JuliaFractal):
+                            jp.c_const = complex(cx, cy)
+                            jp.reset()
+                            self.cat_idx = CAT_KEYS.index('A')
+                            self.page_idx = ji
+                            break
             elif pygame.K_1 <= k <= pygame.K_5:
                 self.jump_category(k - pygame.K_1)
         elif e.type == pygame.MOUSEWHEEL:
@@ -2058,7 +2073,7 @@ def main():
 try:
     from fractal_newton import Newton4, Newton5, Newton6
 
-    PAGE_CLASSES["A"].extend([Newton4, Newton5, Newton6])
+    PAGE_CLASSES["A"].extend([Newton4, Newton5, Newton6])  # type: ignore[arg-type]
 except ImportError:
     pass  # module not yet present during early development
 
@@ -2066,7 +2081,7 @@ except ImportError:
 try:
     from fractal_kleinian import KleinianLimitSet
 
-    PAGE_CLASSES["B"].append(KleinianLimitSet)
+    PAGE_CLASSES["B"].append(KleinianLimitSet)  # type: ignore[arg-type]
 except ImportError:
     pass  # module not yet present during early development
 
